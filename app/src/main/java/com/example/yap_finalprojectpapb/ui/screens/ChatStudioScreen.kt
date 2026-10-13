@@ -1,5 +1,6 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,8 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DrawerValue
+import androidx.compose.foundation.verticalScroll import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalDrawerSheet
@@ -88,7 +88,7 @@ fun ChatStudioScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = true, // Memungkinkan swipe kanan untuk membuka & swipe kiri untuk menutup
+        gesturesEnabled = true,
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = Color(0xFFEFF6FF), // Light blue drawer background #EFF6FF
@@ -129,7 +129,7 @@ fun ChatStudioScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Sandwich Menu Button (Membuka Drawer saat ditekan)
+                    // Sandwich Menu Button
                     Box(
                         modifier = Modifier
                             .size(42.dp)
@@ -314,20 +314,11 @@ fun DrawerSheetContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(BlueLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_square_pen),
-                            contentDescription = "Logo",
-                            tint = BlueNormal,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_mascot),
+                        contentDescription = "YAP Mascot Logo",
+                        modifier = Modifier.size(40.dp)
+                    )
 
                     Spacer(modifier = Modifier.width(12.dp))
 
@@ -476,20 +467,11 @@ fun StudioChatContent(
             ChatState.Start -> {
                 Spacer(modifier = Modifier.height(40.dp))
 
-                Box(
-                    modifier = Modifier
-                        .size(130.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(BlueLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_square_pen),
-                        contentDescription = "Mascot",
-                        tint = BlueNormal,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
+                Image(
+                    painter = painterResource(id = R.drawable.ic_mascot),
+                    contentDescription = "YAP Mascot",
+                    modifier = Modifier.size(120.dp)
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -569,20 +551,11 @@ fun StudioChatContent(
                     modifier = Modifier.align(Alignment.Start),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(BlueLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_square_pen),
-                            contentDescription = "Mascot",
-                            tint = BlueNormal,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_mascot),
+                        contentDescription = "Mascot",
+                        modifier = Modifier.size(32.dp)
+                    )
 
                     Spacer(modifier = Modifier.width(12.dp))
 
@@ -621,20 +594,11 @@ fun StudioChatContent(
                 Row(
                     modifier = Modifier.align(Alignment.Start)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(BlueLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_square_pen),
-                            contentDescription = "Mascot",
-                            tint = BlueNormal,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_mascot),
+                        contentDescription = "Mascot",
+                        modifier = Modifier.size(32.dp)
+                    )
 
                     Spacer(modifier = Modifier.width(12.dp))
 

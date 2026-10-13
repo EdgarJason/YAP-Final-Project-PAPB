@@ -64,13 +64,13 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContent() {
-    var currentScreen by remember { mutableStateOf(AppScreen.ChatStudio) }
+    var currentScreen by remember { mutableStateOf(AppScreen.Welcome) }
 
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding() // Mencegah konten bertabrakan dengan status bar di bagian atas
-            .navigationBarsPadding() // Mencegah tombol bertabrakan dengan navigation bar di bagian bawah
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -116,18 +116,24 @@ fun MainAppContent() {
                     onSendClick = { currentScreen = AppScreen.Profile }
                 )
                 AppScreen.Profile -> ProfileScreen(
-                    onLogoutClick = { currentScreen = AppScreen.LogIn },
+                    onBackClick = { currentScreen = AppScreen.ChatStudio },
+                    onChangeNameClick = { currentScreen = AppScreen.ChangeName },
+                    onChangeEmailClick = { currentScreen = AppScreen.ChangeEmail },
+                    onChangePasswordClick = { currentScreen = AppScreen.ChangePassword },
+                    onLogoutClick = { currentScreen = AppScreen.Welcome },
                     onDeleteAccountClick = { currentScreen = AppScreen.DeleteAccount }
                 )
                 AppScreen.DeleteAccount -> DeleteAccountScreen(
                     onBackClick = { currentScreen = AppScreen.Profile },
-                    onDeleteClick = { currentScreen = AppScreen.LogIn },
+                    onDeleteClick = { currentScreen = AppScreen.Welcome },
                     onForgotPasswordClick = { currentScreen = AppScreen.ForgotPassword }
                 )
                 AppScreen.ChatStudio -> ChatStudioScreen(
-                    onMenuClick = { currentScreen = AppScreen.ChatHistory },
+                    onMenuClick = { },
                     onApiSettingsClick = { currentScreen = AppScreen.APISettings },
-                    onNewChatClick = { currentScreen = AppScreen.ChatStudio }
+                    onNewChatClick = { currentScreen = AppScreen.ChatStudio },
+                    onProfileClick = { currentScreen = AppScreen.Profile },
+                    onRecentSelect = { currentScreen = AppScreen.ChatStudio }
                 )
                 AppScreen.ChatHistory -> ChatHistoryScreen(
                     onBackClick = { currentScreen = AppScreen.ChatStudio },
