@@ -13,7 +13,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +42,7 @@ fun ChangeNameContent(
     onBackClick: () -> Unit,
     onSendClick: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -78,7 +78,6 @@ fun ChangeNameContent(
                 )
             }
 
-            // Tombol di bagian paling bawah dengan jarak 48px dari bottom
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

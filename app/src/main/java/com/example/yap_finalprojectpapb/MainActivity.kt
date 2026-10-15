@@ -11,12 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.yap_finalprojectpapb.ui.screens.APISettingsScreen
 import com.example.yap_finalprojectpapb.ui.screens.AllSetScreen
 import com.example.yap_finalprojectpapb.ui.screens.ChangeEmailScreen
@@ -33,21 +32,21 @@ import com.example.yap_finalprojectpapb.ui.screens.RegisterScreen
 import com.example.yap_finalprojectpapb.ui.screens.WelcomeScreen
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
 
-enum class AppScreen {
-    Welcome,
-    LogIn,
-    Register,
-    AllSet,
-    ForgotPassword,
-    OTP,
-    ChangePassword,
-    ChangeEmail,
-    ChangeName,
-    Profile,
-    DeleteAccount,
-    ChatStudio,
-    ChatHistory,
-    APISettings
+object Routes {
+    const val WELCOME = "welcome"
+    const val LOGIN = "login"
+    const val REGISTER = "register"
+    const val ALL_SET = "all_set"
+    const val FORGOT_PASSWORD = "forgot_password"
+    const val OTP = "otp"
+    const val CHANGE_PASSWORD = "change_password"
+    const val CHANGE_EMAIL = "change_email"
+    const val CHANGE_NAME = "change_name"
+    const val PROFILE = "profile"
+    const val DELETE_ACCOUNT = "delete_account"
+    const val CHAT_STUDIO = "chat_studio"
+    const val CHAT_HISTORY = "chat_history"
+    const val API_SETTINGS = "api_settings"
 }
 
 class MainActivity : ComponentActivity() {
@@ -64,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppContent() {
-    var currentScreen by remember { mutableStateOf(AppScreen.Welcome) }
+    val navController = rememberNavController()
 
     Scaffold(
         modifier = Modifier
@@ -77,74 +76,113 @@ fun MainAppContent() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            when (currentScreen) {
-                AppScreen.Welcome -> WelcomeScreen(
-                    onLogInClick = { currentScreen = AppScreen.LogIn },
-                    onRegisterClick = { currentScreen = AppScreen.Register }
-                )
-                AppScreen.LogIn -> LoginScreen(
-                    onLogInClick = { currentScreen = AppScreen.ChatStudio },
-                    onSignUpClick = { currentScreen = AppScreen.Register },
-                    onForgotPasswordClick = { currentScreen = AppScreen.ForgotPassword }
-                )
-                AppScreen.Register -> RegisterScreen(
-                    onRegisterClick = { currentScreen = AppScreen.AllSet },
-                    onLogInClick = { currentScreen = AppScreen.LogIn }
-                )
-                AppScreen.AllSet -> AllSetScreen(
-                    onStartClick = { currentScreen = AppScreen.ChatStudio }
-                )
-                AppScreen.ForgotPassword -> ForgotPasswordScreen(
-                    onBackClick = { currentScreen = AppScreen.LogIn },
-                    onSendClick = { currentScreen = AppScreen.OTP }
-                )
-                AppScreen.OTP -> OTPScreen(
-                    onBackClick = { currentScreen = AppScreen.ForgotPassword },
-                    onConfirmClick = { currentScreen = AppScreen.ChangePassword }
-                )
-                AppScreen.ChangePassword -> ChangePasswordScreen(
-                    onBackClick = { currentScreen = AppScreen.Profile },
-                    onSendClick = { currentScreen = AppScreen.Profile },
-                    onForgotPasswordClick = { currentScreen = AppScreen.ForgotPassword }
-                )
-                AppScreen.ChangeEmail -> ChangeEmailScreen(
-                    onBackClick = { currentScreen = AppScreen.Profile },
-                    onSendClick = { currentScreen = AppScreen.OTP }
-                )
-                AppScreen.ChangeName -> ChangeNameScreen(
-                    onBackClick = { currentScreen = AppScreen.Profile },
-                    onSendClick = { currentScreen = AppScreen.Profile }
-                )
-                AppScreen.Profile -> ProfileScreen(
-                    onBackClick = { currentScreen = AppScreen.ChatStudio },
-                    onChangeNameClick = { currentScreen = AppScreen.ChangeName },
-                    onChangeEmailClick = { currentScreen = AppScreen.ChangeEmail },
-                    onChangePasswordClick = { currentScreen = AppScreen.ChangePassword },
-                    onLogoutClick = { currentScreen = AppScreen.Welcome },
-                    onDeleteAccountClick = { currentScreen = AppScreen.DeleteAccount }
-                )
-                AppScreen.DeleteAccount -> DeleteAccountScreen(
-                    onBackClick = { currentScreen = AppScreen.Profile },
-                    onDeleteClick = { currentScreen = AppScreen.Welcome },
-                    onForgotPasswordClick = { currentScreen = AppScreen.ForgotPassword }
-                )
-                AppScreen.ChatStudio -> ChatStudioScreen(
-                    onMenuClick = { },
-                    onApiSettingsClick = { currentScreen = AppScreen.APISettings },
-                    onNewChatClick = { currentScreen = AppScreen.ChatStudio },
-                    onProfileClick = { currentScreen = AppScreen.Profile },
-                    onRecentSelect = { currentScreen = AppScreen.ChatStudio }
-                )
-                AppScreen.ChatHistory -> ChatHistoryScreen(
-                    onBackClick = { currentScreen = AppScreen.ChatStudio },
-                    onChatSelect = { currentScreen = AppScreen.ChatStudio },
-                    onNewChatClick = { currentScreen = AppScreen.ChatStudio }
-                )
-                AppScreen.APISettings -> APISettingsScreen(
-                    onBackClick = { currentScreen = AppScreen.ChatStudio },
-                    onApplyClick = { currentScreen = AppScreen.ChatStudio },
-                    onCancelClick = { currentScreen = AppScreen.ChatStudio }
-                )
+            NavHost(
+                navController = navController,
+                startDestination = Routes.WELCOME
+            ) {
+                composable(Routes.WELCOME) {
+                    WelcomeScreen(
+                        onLogInClick = { navController.navigate(Routes.LOGIN) },
+                        onRegisterClick = { navController.navigate(Routes.REGISTER) }
+                    )
+                }
+                composable(Routes.LOGIN) {
+                    LoginScreen(
+                        onLogInClick = { navController.navigate(Routes.CHAT_STUDIO) },
+                        onSignUpClick = { navController.navigate(Routes.REGISTER) },
+                        onForgotPasswordClick = { navController.navigate(Routes.FORGOT_PASSWORD) }
+                    )
+                }
+                composable(Routes.REGISTER) {
+                    RegisterScreen(
+                        onRegisterClick = { navController.navigate(Routes.ALL_SET) },
+                        onLogInClick = { navController.navigate(Routes.LOGIN) }
+                    )
+                }
+                composable(Routes.ALL_SET) {
+                    AllSetScreen(
+                        onStartClick = { navController.navigate(Routes.CHAT_STUDIO) }
+                    )
+                }
+                composable(Routes.FORGOT_PASSWORD) {
+                    ForgotPasswordScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onSendClick = { navController.navigate(Routes.OTP) }
+                    )
+                }
+                composable(Routes.OTP) {
+                    OTPScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onConfirmClick = { navController.navigate(Routes.CHANGE_PASSWORD) }
+                    )
+                }
+                composable(Routes.CHANGE_PASSWORD) {
+                    ChangePasswordScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onSendClick = { navController.navigate(Routes.PROFILE) },
+                        onForgotPasswordClick = { navController.navigate(Routes.FORGOT_PASSWORD) }
+                    )
+                }
+                composable(Routes.CHANGE_EMAIL) {
+                    ChangeEmailScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onSendClick = { navController.navigate(Routes.OTP) }
+                    )
+                }
+                composable(Routes.CHANGE_NAME) {
+                    ChangeNameScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onSendClick = { navController.popBackStack() }
+                    )
+                }
+                composable(Routes.PROFILE) {
+                    ProfileScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onChangeNameClick = { navController.navigate(Routes.CHANGE_NAME) },
+                        onChangeEmailClick = { navController.navigate(Routes.CHANGE_EMAIL) },
+                        onChangePasswordClick = { navController.navigate(Routes.CHANGE_PASSWORD) },
+                        onLogoutClick = {
+                            navController.navigate(Routes.WELCOME) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                        onDeleteAccountClick = { navController.navigate(Routes.DELETE_ACCOUNT) }
+                    )
+                }
+                composable(Routes.DELETE_ACCOUNT) {
+                    DeleteAccountScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onDeleteClick = {
+                            navController.navigate(Routes.WELCOME) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                        onForgotPasswordClick = { navController.navigate(Routes.FORGOT_PASSWORD) }
+                    )
+                }
+                composable(Routes.CHAT_STUDIO) {
+                    ChatStudioScreen(
+                        onMenuClick = { },
+                        onApiSettingsClick = { navController.navigate(Routes.API_SETTINGS) },
+                        onNewChatClick = { },
+                        onProfileClick = { navController.navigate(Routes.PROFILE) },
+                        onRecentSelect = { }
+                    )
+                }
+                composable(Routes.CHAT_HISTORY) {
+                    ChatHistoryScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onChatSelect = { navController.navigate(Routes.CHAT_STUDIO) },
+                        onNewChatClick = { navController.navigate(Routes.CHAT_STUDIO) }
+                    )
+                }
+                composable(Routes.API_SETTINGS) {
+                    APISettingsScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onApplyClick = { navController.popBackStack() },
+                        onCancelClick = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }
