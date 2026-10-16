@@ -15,7 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,9 +34,9 @@ fun APISettingsScreen(
     onApplyClick: () -> Unit = {},
     onCancelClick: () -> Unit = {}
 ) {
-    var aiProvider by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
-    var geminiModel by remember { mutableStateOf("") }
+    var aiProvider by rememberSaveable { mutableStateOf("") }
+    var apiKey by rememberSaveable { mutableStateOf("") }
+    var geminiModel by rememberSaveable { mutableStateOf("") }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -90,7 +90,6 @@ fun APISettingsScreen(
                 )
             }
 
-            // Bottom Action Buttons (Cancel & Apply) dengan jarak 48px dari bottom
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -1,6 +1,7 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,10 +46,18 @@ import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
 
 @Composable
 fun ProfileScreen(
+    onBackClick: () -> Unit = {},
+    onChangeNameClick: () -> Unit = {},
+    onChangeEmailClick: () -> Unit = {},
+    onChangePasswordClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {},
     onDeleteAccountClick: () -> Unit = {}
 ) {
     ViewProfileContent(
+        onBackClick = onBackClick,
+        onChangeNameClick = onChangeNameClick,
+        onChangeEmailClick = onChangeEmailClick,
+        onChangePasswordClick = onChangePasswordClick,
         onLogoutClick = onLogoutClick,
         onDeleteAccountClick = onDeleteAccountClick
     )
@@ -56,12 +65,16 @@ fun ProfileScreen(
 
 @Composable
 fun ViewProfileContent(
+    onBackClick: () -> Unit,
+    onChangeNameClick: () -> Unit,
+    onChangeEmailClick: () -> Unit,
+    onChangePasswordClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onDeleteAccountClick: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -88,7 +101,7 @@ fun ViewProfileContent(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = onBackClick) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_chevron_left),
                             contentDescription = "Kembali",
@@ -119,7 +132,7 @@ fun ViewProfileContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Prabowo Subianto",
+                    text = "Willy Purba",
                     fontFamily = PlusJakartaSansFamily,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -129,7 +142,7 @@ fun ViewProfileContent(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "prabowo@gmail.com",
+                    text = "willypurba@gmail.com",
                     fontFamily = PlusJakartaSansFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
@@ -138,33 +151,38 @@ fun ViewProfileContent(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                AppTextField(
-                    label = "Nama",
-                    value = name,
-                    onValueChange = { name = it },
-                    placeholder = "Placeholder"
-                )
+                Box(modifier = Modifier.clickable { onChangeNameClick() }) {
+                    AppTextField(
+                        label = "Nama",
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = "Placeholder"
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                AppTextField(
-                    label = "Email",
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = "Placeholder"
-                )
+                Box(modifier = Modifier.clickable { onChangeEmailClick() }) {
+                    AppTextField(
+                        label = "Email",
+                        value = email,
+                        onValueChange = { email = it },
+                        placeholder = "Placeholder"
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                AppTextField(
-                    label = "Password",
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = "Placeholder"
-                )
+                Box(modifier = Modifier.clickable { onChangePasswordClick() }) {
+                    AppTextField(
+                        label = "Password",
+                        value = password,
+                        onValueChange = { password = it },
+                        placeholder = "Placeholder"
+                    )
+                }
             }
 
-            // Tombol Logout & Delete Account di bagian paling bawah dengan jarak 48px dari bottom
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

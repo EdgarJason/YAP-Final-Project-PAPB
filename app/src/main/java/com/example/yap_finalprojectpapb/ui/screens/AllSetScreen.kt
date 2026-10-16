@@ -1,38 +1,28 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
-import com.example.yap_finalprojectpapb.ui.components.MascotMood
-import com.example.yap_finalprojectpapb.ui.components.YapMascot
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.yap_finalprojectpapb.R
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
 import com.example.yap_finalprojectpapb.ui.components.AppButtonVariant
+import com.example.yap_finalprojectpapb.ui.components.MascotMood
+import com.example.yap_finalprojectpapb.ui.components.YapMascot
 import com.example.yap_finalprojectpapb.ui.theme.BlueDarker
-import com.example.yap_finalprojectpapb.ui.theme.BlueLight
-import com.example.yap_finalprojectpapb.ui.theme.BlueNormal
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
 import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
@@ -81,7 +71,7 @@ fun AllSetContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     YapMascot(
-                        size = 150.dp,
+                        size = 140.dp,
                         mood = MascotMood.Happy,
                         showSpeechBubble = false
                     )

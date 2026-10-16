@@ -17,7 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,12 +57,12 @@ fun RegisterContent(
     onRegisterClick: () -> Unit,
     onLogInClick: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
 
-    var isPasswordVisible by remember { mutableStateOf(false) }
-    var isConfirmVisible by remember { mutableStateOf(false) }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var isConfirmVisible by rememberSaveable { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),

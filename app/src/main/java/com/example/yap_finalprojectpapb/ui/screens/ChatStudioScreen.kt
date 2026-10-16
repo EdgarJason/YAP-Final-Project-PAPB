@@ -47,7 +47,8 @@ fun ChatStudioScreen(
     onMenuClick: () -> Unit = {},
     onApiSettingsClick: () -> Unit = {},
     onNewChatClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {}
+    onProfileClick: () -> Unit = {},
+    onRecentSelect: (String) -> Unit = {}
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var input by rememberSaveable { mutableStateOf("") }
