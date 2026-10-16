@@ -83,7 +83,7 @@ fun AppButton(
                     !enabled -> Neutral400
                     isPressed && colorStyle == AppButtonColorStyle.Blue -> BlueDark // #0962BF
                     isPressed && colorStyle == AppButtonColorStyle.Red -> RedDark // #B33E3C
-                    colorStyle == AppButtonColorStyle.Blue -> BlueNormal // #0C83FF
+                    colorStyle == AppButtonColorStyle.Blue -> BlueDark // Accessible blue on white
                     else -> RedNormal // #EF5350
                 },
                 label = "primaryButtonBgAnimation"
@@ -113,7 +113,7 @@ fun AppButton(
                     !enabled -> Neutral400
                     isPressed && colorStyle == AppButtonColorStyle.Blue -> BlueDark
                     isPressed && colorStyle == AppButtonColorStyle.Red -> RedDark
-                    colorStyle == AppButtonColorStyle.Blue -> BlueNormal
+                    colorStyle == AppButtonColorStyle.Blue -> BlueDark
                     else -> RedNormal
                 },
                 label = "secondaryButtonStrokeAnimation"
@@ -133,7 +133,7 @@ fun AppButton(
                 !enabled -> Neutral500
                 isPressed && colorStyle == AppButtonColorStyle.Blue -> BlueDark
                 isPressed && colorStyle == AppButtonColorStyle.Red -> RedDark
-                colorStyle == AppButtonColorStyle.Blue -> BlueNormal
+                colorStyle == AppButtonColorStyle.Blue -> BlueDark
                 else -> RedNormal
             }
 

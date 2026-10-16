@@ -1,6 +1,7 @@
 package com.example.yap_finalprojectpapb.ui.theme
 
 import android.os.Build
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -11,27 +12,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BlueNormal,
-    onPrimary = NeutralWhite,
+    primary = Color(0xFF9ECAFF),
+    onPrimary = Color(0xFF00315E),
     primaryContainer = BlueDark,
     onPrimaryContainer = BlueLight,
     secondary = RedNormal,
     onSecondary = NeutralWhite,
-    background = BlueDarker,
-    surface = BlueDarkActive,
+    background = Color(0xFF101923),
+    surface = Color(0xFF162330),
+    onSurfaceVariant = Color(0xFFBAC9DA),
+    surfaceVariant = Color(0xFF243446),
     onBackground = NeutralWhite,
     onSurface = NeutralWhite,
     error = RedNormal
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = BlueNormal,
+    primary = BlueDark,
     onPrimary = NeutralWhite,
     primaryContainer = BlueLight,
     onPrimaryContainer = BlueDarker,
     secondary = RedNormal,
     onSecondary = NeutralWhite,
-    background = Neutral100,
+    background = Color(0xFFF6F8FC),
+    surfaceVariant = BlueLight,
+    onSurfaceVariant = Neutral600,
     surface = NeutralWhite,
     onBackground = Neutral900,
     onSurface = Neutral900,

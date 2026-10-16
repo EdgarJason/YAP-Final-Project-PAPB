@@ -1,0 +1,92 @@
+﻿TUGAS 1 - USER INTERFACE
+
+
+Kelompok 2:
+1. Edgar Jason Husin
+2. Joshua Nathanael Purba
+3. Tobias Andra Valentino
+4. Willy Gregory
+
+
+Link GitHub Proyek: 
+https://github.com/EdgarJason/YAP-Final-Project-PAPB 
+
+
+Link Figma: https://www.figma.com/design/odHg0ZJ4Vu64v4RRieNj7U/YAP---Final-Project-PAPB?node-id=20-379&t=NHgl5ypcp4RNecBd-1 
+
+
+OVERVIEW PROYEK:
+YAP Mobile AI Studio merupakan aplikasi perangkat bergerak berbasis Android yang dirancang untuk membantu pengguna menghasilkan aplikasi berbasis web dengan memanfaat Artificial Intelligence (AI). Aplikasi ini memungkinkan pengguna menyampaikan kebutuhan pengembangan aplikasi melalui percakapan dengan AI, kemudian memanfaatkan kode program yang dihasilkan untuk membangun dan menyempurnakan aplikasi web sesuai dengan kebutuhan. Target pengguna aplikasi ini meliputi mahasiswa, pelajar, pengembang perangkat lunak pemula, serta pengguna lain yang ini membuat aplikasi berbasis web dengan bantuan AI. Melalui antarmuka mobile, pengguna diharapkan dapat mengakses berbagai fungsi pengembangan aplikasi secara lebih praktis tanpa harus selalu menggunakan komputer.
+
+
+Aplikasi YAP Mobile AI Studio memiliki beberapa fitur utama yang saling mendukung proses pengembangan aplikasi. Fitur authentication atau auth digunakan untuk mengelola proses autentikasi dan akses pengguna ke dalam aplikasi, sedangkan fitur profile memungkinkan pengguna melihat dan mengelola informasi profil akun. Fitur chat menjadi sarana komunikasi antara pengguna dan AI untuk memberikan instruksi pembuatan aplikasi, meminta perubahan kode, serta mengembangkan fitur sesuai kebutuhan. Hasil dari interaksi tersebut dapat ditinjau melalui fitur code yang menampilkan kode program hasil generasi AI sehingga pengguna dapat memeriksa dan mengelola kode yang digunakan aplikasi berbasis web.
+
+
+Selain itu, YAP Mobile AI Studio menyediakan fitur API Settings untuk mengatur konfigurasi API yang diperlukan dalam menghubungkan aplikasi dengan layanan AI. Fitur preview memungkinkan pengguna melihat pratinjau tampilan aplikasi web yang dihasilkan sehingga hasil pengembangan dapat diperiksa dan dievaluasi sebelum dilakukan penyempurnaan lebih lanjut. Sementara itu, fitur chat history digunakan untuk menyimpan dan menampilkan riwayat percakapan antara pengguna dan AI, sehingga pengguna dapat mengakses kembali instruksi sebelumnya serta melanjutkan proses pengembangan berdasarkan percakapan yang telah dilakukan. Secara keseluruhan, YAP Mobile AI Studio dirancang untuk mengintegrasikan interaksi dengan AI, pengelolaan kode program, pengaturan API, pratinjau aplikasi, dan penyimpanan riwayat percakapan dalam satu platform mobile. Integrasi tersebut diharapkan dapat memberikan pengalaman pengembangan aplikasi berbasis web yang lebih praktis, fleksibel, dan mudah diakses oleh pengguna.
+
+
+
+
+TAMPILAN UI (SUDAH DISLICING)
+No.
+	Gambar
+	Keterangan
+	1
+	  
+
+	Welcome screen
+	2
+	  
+
+	Registe screen
+	3
+	  
+
+	Profile screen
+	4
+	  
+
+	OTP screen
+	5
+	  
+
+	Login screen
+	6
+	  
+
+	Forgot password screen
+	7
+	  
+
+	Delete account screen
+	8
+	  
+
+	Chat studio screen
+	9
+	  
+
+	Chat history screen
+	10
+	  
+
+	Change password screen
+	11
+	  
+
+	Change name screen
+	12
+	  
+
+	Change email screen
+	13
+	  
+
+	API settings screen 
+	14
+	  
+
+	All set screen
+	
+
+Navigasi dan Popup dapat dilihat pada GitHub, karena merupakan komponen. Dapat dilihat pula selengkapnya di Figma.

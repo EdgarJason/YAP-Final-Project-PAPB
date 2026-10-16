@@ -1,5 +1,6 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
+import com.example.yap_finalprojectpapb.ui.components.YapMascot
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,20 +67,10 @@ fun WelcomeContent(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(130.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(BlueLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_square_pen),
-                        contentDescription = "Mascot Placeholder",
-                        tint = BlueNormal,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
+                YapMascot(
+                    size = 150.dp,
+                    showSpeechBubble = false
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
