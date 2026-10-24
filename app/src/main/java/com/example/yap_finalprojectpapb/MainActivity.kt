@@ -99,7 +99,7 @@ fun MainAppContent() {
                 }
                 composable(Routes.REGISTER) {
                     RegisterScreen(
-                        onRegisterClick = { navController.navigate(Routes.ALL_SET) },
+                        onRegisterSuccess = { _ -> navController.navigate(Routes.ALL_SET) },
                         onLogInClick = { navController.navigate(Routes.LOGIN) }
                     )
                 }
