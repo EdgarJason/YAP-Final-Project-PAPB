@@ -67,7 +67,7 @@ fun WelcomeContent(
                 Text(
                     text = "Welcome to YAP!",
                     fontFamily = PlusJakartaSansFamily,
-                    fontSize = 32.sp,
+                    fontSize = 24.sp, // Judul 24px
                     fontWeight = FontWeight.Bold,
                     color = BlueDarker
                 )

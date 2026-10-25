@@ -80,7 +80,7 @@ fun LogInContent(
             Text(
                 text = "Log In",
                 fontFamily = PlusJakartaSansFamily,
-                fontSize = 32.sp,
+                fontSize = 24.sp, // Judul 24px
                 fontWeight = FontWeight.Bold,
                 color = BlueDarker
             )

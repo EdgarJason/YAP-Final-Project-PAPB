@@ -103,7 +103,7 @@ fun DeleteAccountContent(
                     Text(
                         text = "Delete Account",
                         fontFamily = PlusJakartaSansFamily,
-                        fontSize = 32.sp,
+                        fontSize = 24.sp, // Judul 24px
                         fontWeight = FontWeight.Bold,
                         color = BlueDarker,
                         modifier = Modifier.padding(start = 8.dp)

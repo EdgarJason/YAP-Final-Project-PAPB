@@ -137,7 +137,7 @@ fun HeaderWithTitle(
         Text(
             text = title,
             fontFamily = PlusJakartaSansFamily,
-            fontSize = 32.sp,
+            fontSize = 24.sp, // Judul atas 24px
             fontWeight = FontWeight.Bold,
             color = BlueDarker,
             modifier = Modifier.padding(start = 8.dp)

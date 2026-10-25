@@ -39,8 +39,8 @@ val Typography = Typography(
     headlineLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp
+        fontSize = 24.sp, // Judul Atas 24px
+        lineHeight = 32.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = PlusJakartaSansFamily,
@@ -51,8 +51,8 @@ val Typography = Typography(
     titleLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp
+        fontSize = 24.sp, // Judul Atas 24px
+        lineHeight = 32.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,

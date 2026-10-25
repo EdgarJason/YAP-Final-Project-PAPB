@@ -113,7 +113,7 @@ fun ViewProfileContent(
                     Text(
                         text = "Profile",
                         fontFamily = PlusJakartaSansFamily,
-                        fontSize = 32.sp,
+                        fontSize = 24.sp, // Judul 24px
                         fontWeight = FontWeight.ExtraBold,
                         color = BlueDarker,
                         modifier = Modifier.padding(start = 8.dp)
