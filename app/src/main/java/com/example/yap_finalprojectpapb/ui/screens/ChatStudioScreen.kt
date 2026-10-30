@@ -39,11 +39,14 @@ import androidx.compose.ui.unit.sp
 import com.example.yap_finalprojectpapb.ui.components.MascotMood
 import com.example.yap_finalprojectpapb.ui.components.YapMascot
 import com.example.yap_finalprojectpapb.ui.theme.*
-import kotlinx.coroutines.delay
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.yap_finalprojectpapb.ui.viewmodels.StudioViewModel
+import com.example.yap_finalprojectpapb.ui.viewmodels.StudioUiState
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChatStudioScreen(
+    studioViewModel: StudioViewModel = viewModel(),
     onMenuClick: () -> Unit = {},
     onApiSettingsClick: () -> Unit = {},
     onNewChatClick: () -> Unit = {},
@@ -52,12 +55,11 @@ fun ChatStudioScreen(
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var input by rememberSaveable { mutableStateOf("") }
-    var submitted by rememberSaveable { mutableStateOf("") }
+    val generation by studioViewModel.state.collectAsState()
+    val submitted = generation.prompt
     var confirmNew by remember { mutableStateOf(false) }
 
-    // Build Pipeline States
-    var pipelineStep by rememberSaveable { mutableIntStateOf(0) }
-    var generationId by rememberSaveable { mutableIntStateOf(0) }
+    // Actual provider request state is owned by the ViewModel.
     var showLogDetail by rememberSaveable { mutableStateOf(false) }
     var selectedFile by rememberSaveable { mutableStateOf("index.html") }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
@@ -72,76 +74,30 @@ fun ChatStudioScreen(
     val type = MaterialTheme.typography
     val context = LocalContext.current
 
-    // Simulasi jalannya pipeline saat ide disubmit
-    LaunchedEffect(submitted, generationId) {
-        if (submitted.isNotBlank()) {
-            // This is a demo, not a real agent execution. Resume the saved phase.
-            if (pipelineStep == 0) pipelineStep = 1
-            while (pipelineStep in 1..5) {
-                delay(1500)
-                pipelineStep++
-            }
-        } else {
-            pipelineStep = 0
-        }
-    }
-
     val startNew = {
         input = ""
-        submitted = ""
+        studioViewModel.reset()
         tab = 0
-        pipelineStep = 0
         showLogDetail = false
         selectedFile = "index.html"
         fullscreen = false
-        listOf("index.html", "style.css", "app.js").forEach(codeScrollStates::removeState)
+        codeScrollStates.removeState("index.html")
         previewState.reset()
         confirmNew = false
-        onNewChatClick()
     }
 
-    // Default code sample for active generation
-    val defaultHtml = """
-        <!DOCTYPE html>
-        <html lang="id">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${android.text.TextUtils.htmlEncode(if (submitted.isNotBlank()) submitted.take(30) else "YAP Studio")}</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-slate-50 text-slate-900 font-sans p-6 min-h-screen flex flex-col items-center justify-center">
-          <div class="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200 p-6 text-center">
-            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-              🚀
-            </div>
-            <h1 class="text-2xl font-bold text-slate-900 mb-2">Web App Aktif</h1>
-            <p class="text-slate-600 text-sm mb-6 leading-relaxed">
-              "${android.text.TextUtils.htmlEncode(if (submitted.isNotBlank()) submitted else "Contoh aplikasi web YAP")}"
-            </p>
-            <div class="space-y-3">
-              <button onclick="alert('Berhasil! Aplikasi web kamu berfungsi dengan lancar.')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl shadow-sm active:scale-95 transition">
-                Coba Interaksi Tombol
-              </button>
-              <div class="p-3 bg-slate-100 rounded-xl flex items-center justify-between text-sm">
-                <span class="font-medium text-slate-600">Status:</span>
-                <span class="font-bold text-emerald-600">Pratinjau demo</span>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-    """.trimIndent()
-
-    val currentCode = when (selectedFile) {
-        "style.css" -> "/* Demo ini memakai Tailwind CDN; belum ada CSS terpisah. */"
-        "app.js" -> "// Interaksi demo ditulis inline di index.html; belum ada JavaScript terpisah."
-        else -> defaultHtml
+    val defaultHtml = generation.html.ifBlank {
+        """<!DOCTYPE html><html lang="id"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:sans-serif;padding:24px;color:#042e59"><h2>Pratinjau aplikasi</h2><p>Kirim ide di tab Chat. Hasil Muse Spark akan tampil di sini setelah selesai.</p></body></html>"""
     }
+    val currentCode = generation.html.ifBlank { "<!-- Kode hasil Muse Spark akan tampil setelah aplikasi selesai dibuat. -->" }
 
-    BackHandler(fullscreen) { fullscreen = false }
-    BackHandler(tab == 1 && previewState.canGoBack) { previewState.goBack() }
-    BackHandler(drawer.isOpen) { scope.launch { drawer.close() } }
+    BackHandler(drawer.isOpen || fullscreen || (tab == 1 && previewState.canGoBack)) {
+        when {
+            drawer.isOpen -> scope.launch { drawer.close() }
+            tab == 1 && previewState.canGoBack -> previewState.goBack()
+            fullscreen -> fullscreen = false
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawer,
@@ -184,7 +140,7 @@ fun ChatStudioScreen(
                     onClick = { scope.launch { drawer.close() }; onMenuClick() }
                 )
                 NavigationDrawerItem(
-                    label = { Text("Pengaturan API", fontWeight = FontWeight.Medium) },
+                    label = { Text("Pengaturan AI", fontWeight = FontWeight.Medium) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.Tune, null, tint = BlueNormal) },
                     modifier = Modifier.padding(horizontal = 12.dp),
@@ -228,7 +184,7 @@ fun ChatStudioScreen(
                                 Text("Mobile AI Web App Builder", style = type.bodySmall, color = Neutral500)
                             }
                             IconButton(modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), onClick = onApiSettingsClick) {
-                                Icon(Icons.Outlined.Tune, "Pengaturan API", tint = BlueDarker)
+                                Icon(Icons.Outlined.Tune, "Pengaturan AI", tint = BlueDarker)
                             }
                             IconButton(modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), onClick = { if (input.isNotBlank() || submitted.isNotBlank()) confirmNew = true else startNew() }) {
                                 Icon(Icons.Outlined.Add, "Chat Baru", tint = BlueNormal)
@@ -284,7 +240,7 @@ fun ChatStudioScreen(
                                     )
                                     Spacer(Modifier.height(6.dp))
                                     Text(
-                                        "Jelaskan aplikasi web yang kamu inginkan. YAP akan merancang dan menguji kodenya untukmu.",
+                                        "Jelaskan aplikasi web yang kamu inginkan. Muse Spark akan menulis kodenya untukmu.",
                                         style = type.bodyMedium,
                                         color = Neutral500,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -328,8 +284,9 @@ fun ChatStudioScreen(
 
                                     Spacer(Modifier.height(16.dp))
 
-                                    PipelineTracker(
-                                        step = pipelineStep,
+                                    GenerationStatus(
+                                        state = generation,
+                                        onRetry = studioViewModel::retry,
                                         expanded = showLogDetail,
                                         onToggle = { showLogDetail = !showLogDetail },
                                         onPreview = { tab = 1 },
@@ -414,7 +371,7 @@ fun ChatStudioScreen(
                                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    listOf("index.html", "style.css", "app.js").forEach { file ->
+                                    listOf("index.html").forEach { file ->
                                         FilterChip(
                                             selected = selectedFile == file,
                                             onClick = { selectedFile = file },
@@ -462,16 +419,18 @@ fun ChatStudioScreen(
                                 modifier = Modifier.fillMaxWidth().focusRequester(requester),
                                 placeholder = { Text("Ketik ide aplikasi web yang ingin kamu buat...", fontSize = 14.sp) },
                                 maxLines = 4,
+                                isError = input.length > 6000,
+                                supportingText = {
+                                    if (input.length > 6000) Text("Instruksi maksimal 6000 karakter.")
+                                },
                                 shape = RoundedCornerShape(14.dp),
                                 trailingIcon = {
                                     IconButton(
-                                        enabled = input.isNotBlank() && pipelineStep !in 1..5,
+                                        enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading,
                                         modifier = Modifier.size(48.dp),
                                         onClick = {
-                                            pipelineStep = 0
-                                            generationId++
                                             showLogDetail = false
-                                            submitted = input.trim()
+                                            studioViewModel.generate(input.trim())
                                             input = ""
                                             focus.clearFocus()
                                         }
@@ -503,97 +462,46 @@ fun ChatStudioScreen(
 }
 
 @Composable
-private fun PipelineTracker(
-    step: Int,
+private fun GenerationStatus(
+    state: StudioUiState,
+    onRetry: () -> Unit,
     expanded: Boolean,
     onToggle: () -> Unit,
     onPreview: () -> Unit,
     onCode: () -> Unit
 ) {
-    val phases = listOf(
-        "Architect" to "Merancang struktur",
-        "Coder" to "Menulis kode",
-        "Impeccable" to "Memeriksa tampilan",
-        "Playwright" to "Menguji interaksi",
-        "Strix" to "Memeriksa keamanan"
-    )
-    val completed = (step - 1).coerceIn(0, phases.size)
-    val status = when {
-        step >= 6 -> "Demo selesai · 5/5 tahap"
-        step in 1..5 -> "Tahap $step/5 · ${phases[step - 1].second}"
-        else -> "Menyiapkan demo"
-    }
-    Surface(
-        color = NeutralWhite,
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Neutral200),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(12.dp)) {
+    Surface(color = NeutralWhite, shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Neutral200), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                YapMascot(
-                    mood = if (step >= 6) MascotMood.Happy else MascotMood.Thinking,
-                    size = 56.dp,
-                    showSpeechBubble = false
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).semantics(mergeDescendants = true) {
-                    liveRegion = LiveRegionMode.Polite
-                    stateDescription = "$completed dari 5 tahap demo selesai"
-                }) {
-                    Text(status, style = MaterialTheme.typography.titleSmall, color = BlueDarker)
-                    Text("Simulasi alur · belum menjalankan audit", style = MaterialTheme.typography.bodySmall, color = Neutral500)
-                }
+                YapMascot(mood = if (state.loading) MascotMood.Thinking else MascotMood.Happy,
+                    size = 56.dp, showSpeechBubble = false)
+                Text(when {
+                    state.loading -> "Muse Spark sedang menulis aplikasi…"
+                    state.error != null -> "Aplikasi belum berhasil diperbarui"
+                    else -> "Aplikasi siap dicoba"
+                }, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.titleSmall, color = BlueDarker)
             }
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { completed / 5f },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Progres demo" },
-                color = BlueNormal,
-                trackColor = Neutral200
-            )
-            TextButton(
-                onClick = onToggle,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
-                    stateDescription = if (expanded) "Terbuka" else "Tertutup"
-                }
-            ) {
-                Text(if (expanded) "Sembunyikan tahapan" else "Rincian tahapan")
-                Spacer(Modifier.width(8.dp))
-                Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
+            if (state.loading) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Proses dapat memerlukan beberapa menit.", style = MaterialTheme.typography.bodySmall)
             }
-            AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                    phases.forEachIndexed { index, (agent, description) ->
-                        val phase = index + 1
-                        val phaseStatus = when {
-                            step > phase -> "Selesai (demo)"
-                            step == phase -> "Sedang berjalan (demo)"
-                            else -> "Menunggu"
-                        }
-                        Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                when {
-                                    step > phase -> Icons.Outlined.CheckCircle
-                                    step == phase -> Icons.Outlined.PlayCircleOutline
-                                    else -> Icons.Outlined.RadioButtonUnchecked
-                                },
-                                null,
-                                Modifier.size(20.dp),
-                                tint = if (step >= phase) BlueNormal else Neutral500
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("$phase. $agent · $description", style = MaterialTheme.typography.bodyMedium, color = BlueDarker)
-                                Text(phaseStatus, style = MaterialTheme.typography.bodySmall, color = Neutral500)
-                            }
-                        }
-                    }
-                }
+            state.error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coba lagi") }
             }
-            if (step >= 6) {
+            TextButton(onClick = onToggle, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (expanded) "Sembunyikan rincian" else "Rincian pembuatan")
+            }
+            if (expanded) {
+                Text("Model: Muse Spark 1.3\nKode HTML, CSS, dan JavaScript digabung dalam index.html. Hasil belum menjalani pengujian otomatis.",
+                    style = MaterialTheme.typography.bodySmall, color = Neutral500)
+            }
+            if (state.html.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Uji Aplikasi") }
+                    Button(onClick = onPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Coba Aplikasi") }
                     OutlinedButton(onClick = onCode, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Lihat Kode") }
                 }
             }

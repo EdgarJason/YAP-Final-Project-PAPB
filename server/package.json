@@ -1,0 +1,10 @@
+{
+  "name": "yap-muse-gateway",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env local.mjs",
+    "test": "node --test"
+  }
+}

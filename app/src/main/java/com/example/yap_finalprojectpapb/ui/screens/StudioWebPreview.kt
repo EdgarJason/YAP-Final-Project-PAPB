@@ -10,6 +10,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.io.ByteArrayInputStream
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -102,8 +103,23 @@ internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier:
                     val browser = state.webView ?: WebView(context).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        settings.blockNetworkLoads = true
                         webChromeClient = WebChromeClient()
                         webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                                // Keep fragment/history navigation inside the current document working.
+                                // All navigations to another document or external scheme remain blocked.
+                                return request.url.toString().substringBefore('#') != view.url?.substringBefore('#')
+                            }
+
+                            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                                return if (request.url.scheme in listOf("http", "https", "file", "content")) {
+                                    WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                                } else null
+                            }
+
                             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                                 state.loading = true
                                 state.error = null
@@ -147,7 +163,7 @@ internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier:
                 if (state.loadedHtml != html) {
                     state.loadedHtml = html
                     state.error = null
-                    state.webView?.loadDataWithBaseURL("https://yap.local/", html, "text/html", "UTF-8", null)
+                    state.webView?.loadDataWithBaseURL("https://yap.local/", html, "text/html", "UTF-8", "https://yap.local/")
                 }
             },
             onRelease = { host ->

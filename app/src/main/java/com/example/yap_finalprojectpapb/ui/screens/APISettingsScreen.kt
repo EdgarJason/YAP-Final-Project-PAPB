@@ -12,6 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.example.yap_finalprojectpapb.data.GatewaySettings
+import com.example.yap_finalprojectpapb.data.GatewaySettingsStore
+import com.example.yap_finalprojectpapb.data.gatewayUrlError
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,9 +42,13 @@ fun APISettingsScreen(
     onApplyClick: () -> Unit = {},
     onCancelClick: () -> Unit = {}
 ) {
-    var aiProvider by rememberSaveable { mutableStateOf("") }
-    var apiKey by rememberSaveable { mutableStateOf("") }
-    var geminiModel by rememberSaveable { mutableStateOf("") }
+    val context = LocalContext.current
+    val store = remember { GatewaySettingsStore(context) }
+    val saved = remember { store.load() }
+    var serverUrl by rememberSaveable { mutableStateOf(saved.url) }
+    // Access tokens must not enter saved-instance-state bundles.
+    var accessToken by remember { mutableStateOf(saved.token) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -58,36 +70,27 @@ fun APISettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 HeaderWithTitle(
-                    title = "API Settings",
+                    title = "Pengaturan AI",
                     onBackClick = onBackClick
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                AppTextField(
-                    label = "AI Provider",
-                    value = aiProvider,
-                    onValueChange = { aiProvider = it },
-                    placeholder = "Placeholder"
-                )
-
+                Text("Muse Spark 1.3", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Hubungkan ke server YAP milik pengelola. Kunci API Muse disimpan di server.",
+                    style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(24.dp))
+                AppTextField(label = "Alamat server YAP", value = serverUrl,
+                    onValueChange = { serverUrl = it; error = null }, placeholder = "https://server-yap.example")
                 Spacer(modifier = Modifier.height(16.dp))
-
-                AppTextField(
-                    label = "API Key",
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    placeholder = "Placeholder"
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AppTextField(
-                    label = "Gemini Model",
-                    value = geminiModel,
-                    onValueChange = { geminiModel = it },
-                    placeholder = "Placeholder"
-                )
+                AppTextField(label = "Token akses YAP", value = accessToken,
+                    onValueChange = { accessToken = it; error = null }, placeholder = "Token dari pengelola",
+                    visualTransformation = PasswordVisualTransformation())
+                error?.let {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
             }
 
             Row(
@@ -109,7 +112,19 @@ fun APISettingsScreen(
                 Box(modifier = Modifier.weight(1f)) {
                     AppButton(
                         text = "Apply",
-                        onClick = onApplyClick,
+                        onClick = {
+                            error = gatewayUrlError(serverUrl)
+                                ?: when {
+                                    accessToken.trim().startsWith("LLM|") -> "Masukkan token YAP dari pengelola, bukan kunci API Muse."
+                                    accessToken.trim().length < 32 -> "Token akses minimal 32 karakter."
+                                    else -> null
+                                }
+                            if (error == null) {
+                                runCatching { store.save(GatewaySettings(serverUrl.trim(), accessToken.trim())) }
+                                    .onSuccess { onApplyClick() }
+                                    .onFailure { error = "Pengaturan tidak dapat disimpan. Coba lagi." }
+                            }
+                        },
                         variant = AppButtonVariant.Primary,
                         colorStyle = AppButtonColorStyle.Blue,
                         fullWidth = true
