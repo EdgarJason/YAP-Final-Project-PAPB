@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YAP - Mobile AI Studio: Simulator Validasi ViewModel & Orientasi Layar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue-light: #E7F3FF;
+      --blue-light-hover: #DBECFF;
+      --blue-light-active: #B4D9FF;
+      --blue-normal: #0C83FF;
+      --blue-normal-hover: #0B76E6;
+      --blue-normal-active: #0A69CC;
+      --blue-dark: #0962BF;
+      --blue-darker: #042E59;
+      --red-normal: #EF5350;
+      --red-light: #FDEEEE;
+      --neutral-white: #FFFFFF;
+      --neutral-100: #F8F9FA;
+      --neutral-200: #EBF0F5;
+      --neutral-300: #DDE3EA;
+      --neutral-500: #6C7A89;
+      --neutral-800: #1A202C;
+      --neutral-900: #0D1117;
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --border-glow: rgba(12, 131, 255, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(12, 131, 255, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(79, 142, 247, 0.08) 0%, transparent 40%);
+      color: #F1F5F9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1280px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--blue-normal), var(--blue-darker));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(12, 131, 255, 0.4);
+    }
+
+    .brand-title h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #FFFFFF;
+    }
+
+    .brand-title p {
+      font-size: 12px;
+      color: #94A3B8;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(12, 131, 255, 0.15);
+      border: 1px solid rgba(12, 131, 255, 0.4);
+      color: #60A5FA;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .badge-status::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    .main-workspace {
+      display: flex;
+      width: 100%;
+      max-width: 1280px;
+      gap: 32px;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* ========================================================
+       DEVICE SIMULATOR CONTAINER
+    ======================================================== */
+    .device-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .device-toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.7);
+      padding: 8px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+    }
+
+    .btn-tool {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-tool:hover {
+      background: rgba(12, 131, 255, 0.2);
+      border-color: var(--blue-normal);
+      color: #93C5FD;
+    }
+
+    .btn-tool.active {
+      background: var(--blue-normal);
+      border-color: var(--blue-normal);
+      box-shadow: 0 2px 10px rgba(12, 131, 255, 0.4);
+    }
+
+    /* Device Mockup Wrapper */
+    .device-frame {
+      position: relative;
+      background: #181c24;
+      border-radius: 44px;
+      box-shadow: 
+        0 0 0 10px #2a313d,
+        0 0 0 12px #1e242e,
+        0 25px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 40px rgba(12, 131, 255, 0.15);
+      overflow: hidden;
+      transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* Portrait (Default) */
+    .device-frame.portrait {
+      width: 380px;
+      height: 780px;
+    }
+
+    /* Landscape */
+    .device-frame.landscape {
+      width: 760px;
+      height: 420px;
+    }
+
+    .device-screen {
+      width: 100%;
+      height: 100%;
+      background: var(--neutral-white);
+      color: var(--neutral-900);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: 38px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--blue-darker);
+      background: var(--neutral-white);
+      z-index: 20;
+      user-select: none;
+    }
+
+    .notch-camera {
+      width: 12px;
+      height: 12px;
+      background: #000000;
+      border-radius: 50%;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Screen Content Area (Scrollable like Jetpack Compose) */
+    .screen-scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px 24px 28px 24px;
+      display: flex;
+      flex-direction: column;
+      background: var(--neutral-white);
+    }
+
+    /* Android Navigation Bar Pill */
+    .nav-bar-pill {
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--neutral-white);
+      z-index: 20;
+    }
+
+    .pill-handle {
+      width: 120px;
+      height: 4px;
+      background: var(--neutral-300);
+      border-radius: 4px;
+    }
+
+    /* ========================================================
+       YAP COMPOSE FORM DESIGN SYSTEM
+    ======================================================== */
+    .form-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .form-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--blue-darker);
+      letter-spacing: -0.5px;
+    }
+
+    .form-subtitle {
+      font-size: 13px;
+      color: var(--neutral-500);
+      margin-top: 4px;
+    }
+
+    .form-grid-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 16px;
+      width: 100%;
+    }
+
+    .form-group.half {
+      flex: 1;
+    }
+
+    .form-label {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--blue-darker);
+      margin-bottom: 6px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: var(--neutral-white);
+      border: 1px solid var(--blue-light-active);
+      border-radius: 16px;
+      min-height: 50px;
+      padding: 0 16px;
+      transition: all 0.2s ease;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: var(--blue-normal);
+      box-shadow: 0 0 0 3px rgba(12, 131, 255, 0.12);
+    }
+
+    .input-wrapper.error {
+      border-color: var(--red-normal) !important;
+      background: #FFF9F9;
+    }
+
+    .app-input {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 15px;
+      color: var(--neutral-900);
+      font-weight: 500;
+    }
+
+    .app-input::placeholder {
+      color: var(--neutral-500);
+      font-weight: 400;
+    }
+
+    .input-icon-btn {
+      background: none;
+      border: none;
+      color: var(--neutral-500);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .input-icon-btn:hover {
+      color: var(--blue-normal);
+    }
+
+    .error-text {
+      color: var(--red-normal);
+      font-size: 12px;
+      margin-top: 5px;
+      margin-left: 4px;
+      display: none;
+      font-weight: 500;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .error-text.visible {
+      display: block;
+    }
+
+    /* Result Card (Gabungan Data Nama Depan + Belakang) */
+    .combined-result-card {
+      background: #F0F7FF;
+      border: 1.5px solid var(--blue-light-active);
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-top: 10px;
+      margin-bottom: 16px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .combined-result-card.visible {
+      display: block;
+    }
+
+    .result-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--blue-normal);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .result-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--blue-darker);
+    }
+
+    .result-email {
+      font-size: 13px;
+      color: var(--neutral-500);
+    }
+
+    /* Buttons */
+    .btn-submit {
+      width: 100%;
+      min-height: 52px;
+      background: var(--blue-normal);
+      color: var(--neutral-white);
+      border: none;
+      border-radius: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(12, 131, 255, 0.35);
+      transition: all 0.2s ease;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-submit:hover {
+      background: var(--blue-normal-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(12, 131, 255, 0.45);
+    }
+
+    .btn-submit:active {
+      transform: translateY(1px);
+    }
+
+    .login-redirect {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--blue-darker);
+    }
+
+    .login-redirect a {
+      color: var(--blue-darker);
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* All Set Screen */
+    .screen-all-set {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .screen-all-set.active {
+      display: flex;
+    }
+
+    .mascot-bounce {
+      width: 130px;
+      height: 130px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      animation: gentleFloat 3s ease-in-out infinite;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .mascot-bounce:active {
+      transform: scale(0.92);
+    }
+
+    /* ========================================================
+       SIDEBAR CONTROL & EVALUATION GUIDE
+    ======================================================== */
+    .side-panel {
+      flex: 1;
+      min-width: 340px;
+      max-width: 460px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 22px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .panel-card h2 {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #93C5FD;
+    }
+
+    .preset-btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #E2E8F0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .btn-preset:hover {
+      background: rgba(12, 131, 255, 0.25);
+      border-color: var(--blue-normal);
+      color: #FFFFFF;
+    }
+
+    .timer-box {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .timer-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 26px;
+      font-weight: 700;
+      color: #38BDF8;
+    }
+
+    .btn-timer {
+      background: var(--blue-normal);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #CBD5E1;
+    }
+
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(12, 131, 255, 0.2);
+      color: #60A5FA;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    /* Live State Inspector */
+    .state-inspector {
+      background: #090d16;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #7DD3FC;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes gentleFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-title">
+        <h1>YAP Mobile AI Studio — Preview Simulator</h1>
+        <p>Tugas 2 PAPB: Validasi Form Input ViewModel + Penggabungan Data + Orientasi Layar</p>
+      </div>
+    </div>
+    <div class="badge-status">
+      Android ViewModel Active (Survives Rotation)
+    </div>
+  </header>
+
+  <div class="main-workspace">
+
+    <!-- DEVICE SIMULATOR SECTION -->
+    <div class="device-stage">
+      
+      <!-- Device Quick Controls -->
+      <div class="device-toolbar">
+        <button id="btnRotate" class="btn-tool" onclick="toggleOrientation()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span id="rotateLabel">Rotasi ke Landscape (90°)</span>
+        </button>
+
+        <button class="btn-tool" onclick="resetToWelcome()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M8 16H3v5"/>
+          </svg>
+          Kembali ke Form
+        </button>
+      </div>
+
+      <!-- Android Frame -->
+      <div id="deviceFrame" class="device-frame portrait">
+        <div class="device-screen">
+          
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <span>21:45</span>
+            <div class="notch-camera"></div>
+            <div class="status-icons">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z"/>
+              </svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="2" y="7" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+                <rect x="4" y="9" width="11" height="7" fill="currentColor"/>
+                <path d="M21 11v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Screen 1: Register Form (Scrollable) -->
+          <div id="screenRegister" class="screen-scroll-container">
+            <div class="form-header">
+              <h2 class="form-title">Register</h2>
+              <p class="form-subtitle">Lengkapi data akun untuk memulai eksplorasi YAP</p>
+            </div>
+
+            <!-- Row Nama Depan & Nama Belakang (Gabungan Input) -->
+            <div class="form-grid-row">
+              <div class="form-group half">
+                <label class="form-label">Nama Depan</label>
+                <div class="input-wrapper" id="wrapFirstName">
+                  <input type="text" id="inputFirstName" class="app-input" placeholder="Edgar" oninput="onFirstNameChange(this.value)">
+                </div>
+                <span id="errFirstName" class="error-text">Nama depan wajib diisi</span>
+              </div>
+
+              <div class="form-group half">
+                <label class="form-label">Nama Belakang</label>
+                <div class="input-wrapper" id="wrapLastName">
+                  <input type="text" id="inputLastName" class="app-input" placeholder="Jason" oninput="onLastNameChange(this.value)">
+                </div>
+                <span id="errLastName" class="error-text">Nama belakang wajib diisi</span>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <div class="input-wrapper" id="wrapEmail">
+                <input type="email" id="inputEmail" class="app-input" placeholder="contoh@mail.com" oninput="onEmailChange(this.value)">
+              </div>
+              <span id="errEmail" class="error-text">Format email tidak valid</span>
+            </div>
+
+            <!-- Kata Sandi -->
+            <div class="form-group">
+              <label class="form-label">Kata Sandi</label>
+              <div class="input-wrapper" id="wrapPassword">
+                <input type="password" id="inputPassword" class="app-input" placeholder="Minimal 8 karakter" oninput="onPasswordChange(this.value)">
+                <button type="button" class="input-icon-btn" onclick="togglePassVisibility('inputPassword', this)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+              <span id="errPassword" class="error-text">Kata sandi minimal 8 karakter</span>
+            </div>
+
+            <!-- Konfirmasi Kata Sandi -->
+            <div class="form-group">
+              <label class="form-label">Konfirmasi Kata Sandi</label>
+              <div class="input-wrapper" id="wrapConfirm">
+                <input type="password" id="inputConfirm" class="app-input" placeholder="Ketik ulang kata sandi" oninput="onConfirmChange(this.value)">
+                <button type="button" class="input-icon-btn" onclick="togglePassVisibility('inputConfirm', this)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+              <span id="errConfirm" class="error-text">Konfirmasi kata sandi tidak cocok</span>
+            </div>
+
+            <!-- Kartu Bukti Penggabungan Data -->
+            <div id="resultCard" class="combined-result-card">
+              <div class="result-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+                <span>Data Berhasil Diolah ViewModel:</span>
+              </div>
+              <div id="resFullName" class="result-name">Nama Lengkap: -</div>
+              <div id="resEmail" class="result-email">Email Terdaftar: -</div>
+            </div>
+
+            <!-- Submit Button -->
+            <button class="btn-submit" onclick="submitForm()">
+              <span>Register</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </button>
+
+            <div class="login-redirect">
+              Sudah punya akun? <a href="#" onclick="alert('Navigasi ke Login Screen')">Log In</a>
+            </div>
+          </div>
+
+          <!-- Screen 2: All Set (Success Screen) -->
+          <div id="screenAllSet" class="screen-all-set">
+            <!-- Mascot SVG Chubby Pear -->
+            <div class="mascot-bounce" title="Ketuk untuk memantul!" onclick="this.style.transform='scale(1.15)'; setTimeout(()=>this.style.transform='scale(1)', 200);">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+                <defs>
+                  <linearGradient id="mGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#4F8EF7" />
+                    <stop offset="60%" stop-color="#2563EB" />
+                    <stop offset="100%" stop-color="#1D4ED8" />
+                  </linearGradient>
+                  <linearGradient id="bGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.6" />
+                    <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.15" />
+                  </linearGradient>
+                </defs>
+                <ellipse cx="100" cy="180" rx="52" ry="9" fill="#93C5FD" opacity="0.32" />
+                <path d="M 64 68 C 50 48, 72 32, 85 52 Z" fill="url(#mGrad)" />
+                <path d="M 136 68 C 150 48, 128 32, 115 52 Z" fill="url(#mGrad)" />
+                <path d="M 60 76 C 42 90, 36 122, 45 146 C 52 165, 70 174, 88 174 L 112 174 C 130 174, 148 165, 155 146 C 164 122, 158 90, 140 76 C 126 65, 74 65, 60 76 Z" fill="url(#mGrad)" />
+                <ellipse cx="100" cy="132" rx="38" ry="32" fill="url(#bGrad)" />
+                <ellipse cx="78" cy="174" rx="14" ry="8" fill="#1D4ED8" />
+                <ellipse cx="122" cy="174" rx="14" ry="8" fill="#1D4ED8" />
+                <path d="M 44 116 C 30 120, 34 136, 48 132 C 54 130, 52 120, 44 116 Z" fill="#2563EB" />
+                <path d="M 156 116 C 170 120, 166 136, 152 132 C 146 130, 148 120, 156 116 Z" fill="#2563EB" />
+                <ellipse cx="78" cy="100" rx="9" ry="12" fill="#0F172A" />
+                <ellipse cx="80" cy="97" rx="3.5" ry="4.5" fill="#FFFFFF" />
+                <ellipse cx="122" cy="100" rx="9" ry="12" fill="#0F172A" />
+                <ellipse cx="124" cy="97" rx="3.5" ry="4.5" fill="#FFFFFF" />
+                <ellipse cx="66" cy="112" rx="7" ry="4" fill="#60A5FA" opacity="0.75" />
+                <ellipse cx="134" cy="112" rx="7" ry="4" fill="#60A5FA" opacity="0.75" />
+                <path d="M 94 110 Q 100 116 106 110" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round" />
+              </svg>
+            </div>
+            <h2 style="font-size: 26px; color: var(--blue-darker); margin-bottom: 6px;">All set!</h2>
+            <p id="allSetWelcome" style="font-size: 15px; color: var(--neutral-500); margin-bottom: 24px;">Selamat datang, Edgar Jason!</p>
+            <button class="btn-submit" onclick="resetToWelcome()">
+              <span>Mulai Buat Aplikasi</span>
+            </button>
+          </div>
+
+          <!-- Bottom Navigation Bar -->
+          <div class="nav-bar-pill">
+            <div class="pill-handle"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR TOOLS & INSTRUCTIONS -->
+    <div class="side-panel">
+
+      <!-- Test Control Panel -->
+      <div class="panel-card">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <path d="M8 21h8M12 17v4"/>
+          </svg>
+          Skenario Pengujian Tugas
+        </h2>
+
+        <div class="preset-btn-group">
+          <button class="btn-preset" onclick="fillInvalidScenario()">
+            ❌ 1. Tes Validasi Error
+            <small style="display:block; color:#94A3B8; font-size:11px; margin-top:2px;">Trigger semua error</small>
+          </button>
+          <button class="btn-preset" onclick="fillValidScenario()">
+            ✅ 2. Tes Gabungan Nama
+            <small style="display:block; color:#94A3B8; font-size:11px; margin-top:2px;">Edgar + Jason</small>
+          </button>
+        </div>
+
+        <div class="preset-btn-group">
+          <button class="btn-preset" onclick="toggleOrientation()">
+            🔄 3. Tes Rotasi Layar
+            <small style="display:block; color:#94A3B8; font-size:11px; margin-top:2px;">Portrait ↔ Landscape</small>
+          </button>
+          <button class="btn-preset" onclick="resetForm()">
+            🧹 Reset Formulir
+            <small style="display:block; color:#94A3B8; font-size:11px; margin-top:2px;">Kosongkan nilai</small>
+          </button>
+        </div>
+
+        <!-- Timer 60 Detik -->
+        <div class="timer-box">
+          <div>
+            <div style="font-size:11px; color:#94A3B8; font-weight:600;">SIMULASI VIDEO DEMO</div>
+            <div id="timerText" class="timer-display">00:60</div>
+          </div>
+          <button id="btnTimer" class="btn-timer" onclick="toggleTimer()">Mulai Timer</button>
+        </div>
+      </div>
+
+      <!-- Panduan Perekaman Video -->
+      <div class="panel-card">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+          </svg>
+          Urutan Video Demo (< 60 Detik)
+        </h2>
+
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div><strong>00:00 - 00:15:</strong> Tunjukkan form Register. Klik langsung tombol Register untuk membuktikan <em>semua validasi elemen input</em> bekerja.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div><strong>00:15 - 00:35:</strong> Ketik Nama Depan (<code>Edgar</code>), Nama Belakang (<code>Jason</code>), Email, dan Kata Sandi.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div><strong>00:35 - 00:45:</strong> <em>Putar layar (rotasi ke Landscape)</em> lalu kembalikan ke Portrait untuk membuktikan <strong>data tidak hilang</strong> berkat ViewModel.</div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">4</div>
+          <div><strong>00:45 - 00:60:</strong> Tekan Register. Tunjukkan <em>gabungan dua input</em> menjadi <code>Edgar Jason</code> di kartu hasil dan All Set screen!</div>
+        </div>
+      </div>
+
+      <!-- State Monitor -->
+      <div class="panel-card">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          RegisterViewModel State (Live)
+        </h2>
+        <pre id="stateInspector" class="state-inspector">{}</pre>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // ==========================================
+    // VIEWMODEL STATE SIMULATION (Survives Rotation)
+    // ==========================================
+    const ViewModel = {
+      state: {
+        firstName: "",
+        firstNameError: null,
+        lastName: "",
+        lastNameError: null,
+        email: "",
+        emailError: null,
+        password: "",
+        passwordError: null,
+        confirmPassword: "",
+        confirmPasswordError: null,
+        combinedFullName: "",
+        isSubmitSuccess: false,
+        orientation: "portrait"
+      },
+
+      namePattern: /^[a-zA-Z\s]+$/,
+      emailPattern: /^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/,
+
+      validateFirstName(val) {
+        val = val.trim();
+        if (!val) return "Nama depan wajib diisi";
+        if (val.length < 2) return "Nama depan minimal 2 karakter";
+        if (!this.namePattern.test(val)) return "Nama depan hanya boleh berisi huruf";
+        return null;
+      },
+
+      validateLastName(val) {
+        val = val.trim();
+        if (!val) return "Nama belakang wajib diisi";
+        if (!this.namePattern.test(val)) return "Nama belakang hanya boleh berisi huruf";
+        return null;
+      },
+
+      validateEmail(val) {
+        val = val.trim();
+        if (!val) return "Email wajib diisi";
+        if (!this.emailPattern.test(val)) return "Format email tidak valid (contoh: user@mail.com)";
+        return null;
+      },
+
+      validatePassword(val) {
+        if (!val) return "Kata sandi wajib diisi";
+        if (val.length < 8) return "Kata sandi minimal 8 karakter";
+        return null;
+      },
+
+      validateConfirmPassword(confirm, pass) {
+        if (!confirm) return "Konfirmasi kata sandi wajib diisi";
+        if (confirm !== pass) return "Konfirmasi kata sandi tidak cocok";
+        return null;
+      },
+
+      validateAndSubmit() {
+        this.state.firstNameError = this.validateFirstName(this.state.firstName);
+        this.state.lastNameError = this.validateLastName(this.state.lastName);
+        this.state.emailError = this.validateEmail(this.state.email);
+        this.state.passwordError = this.validatePassword(this.state.password);
+        this.state.confirmPasswordError = this.validateConfirmPassword(this.state.confirmPassword, this.state.password);
+
+        const hasError = !!(this.state.firstNameError || this.state.lastNameError || this.state.emailError || this.state.passwordError || this.state.confirmPasswordError);
+
+        if (hasError) {
+          this.state.isSubmitSuccess = false;
+          return false;
+        }
+
+        // Pengolahan data gabungan (Nama Depan + Belakang)
+        this.state.combinedFullName = `${this.state.firstName.trim()} ${this.state.lastName.trim()}`;
+        this.state.isSubmitSuccess = true;
+        return true;
+      }
+    };
+
+    // ==========================================
+    // UI BINDING & EVENTS
+    // ==========================================
+    function updateInspector() {
+      document.getElementById('stateInspector').textContent = JSON.stringify(ViewModel.state, null, 2);
+    }
+
+    function renderErrors() {
+      applyError('wrapFirstName', 'errFirstName', ViewModel.state.firstNameError);
+      applyError('wrapLastName', 'errLastName', ViewModel.state.lastNameError);
+      applyError('wrapEmail', 'errEmail', ViewModel.state.emailError);
+      applyError('wrapPassword', 'errPassword', ViewModel.state.passwordError);
+      applyError('wrapConfirm', 'errConfirm', ViewModel.state.confirmPasswordError);
+
+      const resCard = document.getElementById('resultCard');
+      if (ViewModel.state.isSubmitSuccess && ViewModel.state.combinedFullName) {
+        resCard.classList.add('visible');
+        document.getElementById('resFullName').textContent = `Nama Lengkap: ${ViewModel.state.combinedFullName}`;
+        document.getElementById('resEmail').textContent = `Email Terdaftar: ${ViewModel.state.email}`;
+      } else {
+        resCard.classList.remove('visible');
+      }
+
+      updateInspector();
+    }
+
+    function applyError(wrapperId, errorId, errorMsg) {
+      const wrap = document.getElementById(wrapperId);
+      const err = document.getElementById(errorId);
+      if (errorMsg) {
+        wrap.classList.add('error');
+        err.textContent = errorMsg;
+        err.classList.add('visible');
+      } else {
+        wrap.classList.remove('error');
+        err.classList.remove('visible');
+      }
+    }
+
+    function onFirstNameChange(val) {
+      ViewModel.state.firstName = val;
+      if (ViewModel.state.firstNameError) ViewModel.state.firstNameError = ViewModel.validateFirstName(val);
+      renderErrors();
+    }
+
+    function onLastNameChange(val) {
+      ViewModel.state.lastName = val;
+      if (ViewModel.state.lastNameError) ViewModel.state.lastNameError = ViewModel.validateLastName(val);
+      renderErrors();
+    }
+
+    function onEmailChange(val) {
+      ViewModel.state.email = val;
+      if (ViewModel.state.emailError) ViewModel.state.emailError = ViewModel.validateEmail(val);
+      renderErrors();
+    }
+
+    function onPasswordChange(val) {
+      ViewModel.state.password = val;
+      if (ViewModel.state.passwordError) ViewModel.state.passwordError = ViewModel.validatePassword(val);
+      if (ViewModel.state.confirmPassword && ViewModel.state.confirmPasswordError) {
+        ViewModel.state.confirmPasswordError = ViewModel.validateConfirmPassword(ViewModel.state.confirmPassword, val);
+      }
+      renderErrors();
+    }
+
+    function onConfirmChange(val) {
+      ViewModel.state.confirmPassword = val;
+      if (ViewModel.state.confirmPasswordError) {
+        ViewModel.state.confirmPasswordError = ViewModel.validateConfirmPassword(val, ViewModel.state.password);
+      }
+      renderErrors();
+    }
+
+    function togglePassVisibility(inputId, btn) {
+      const el = document.getElementById(inputId);
+      const isPass = el.type === 'password';
+      el.type = isPass ? 'text' : 'password';
+      btn.style.color = isPass ? 'var(--blue-normal)' : 'var(--neutral-500)';
+    }
+
+    function submitForm() {
+      const success = ViewModel.validateAndSubmit();
+      renderErrors();
+      if (success) {
+        setTimeout(() => {
+          document.getElementById('screenRegister').style.display = 'none';
+          document.getElementById('screenAllSet').classList.add('active');
+          document.getElementById('allSetWelcome').textContent = `Selamat datang, ${ViewModel.state.combinedFullName}!`;
+        }, 800);
+      }
+    }
+
+    function resetToWelcome() {
+      document.getElementById('screenAllSet').classList.remove('active');
+      document.getElementById('screenRegister').style.display = 'flex';
+      renderErrors();
+    }
+
+    // ==========================================
+    // ORIENTATION ROTATION (Survive Configuration Change)
+    // ==========================================
+    function toggleOrientation() {
+      const frame = document.getElementById('deviceFrame');
+      const isPortrait = frame.classList.contains('portrait');
+      const label = document.getElementById('rotateLabel');
+
+      if (isPortrait) {
+        frame.classList.remove('portrait');
+        frame.classList.add('landscape');
+        ViewModel.state.orientation = "landscape";
+        label.textContent = "Rotasi ke Portrait";
+      } else {
+        frame.classList.remove('landscape');
+        frame.classList.add('portrait');
+        ViewModel.state.orientation = "portrait";
+        label.textContent = "Rotasi ke Landscape (90°)";
+      }
+
+      // Restore form input values to ensure evaluator sees state preserved
+      syncDomWithState();
+      updateInspector();
+    }
+
+    function syncDomWithState() {
+      document.getElementById('inputFirstName').value = ViewModel.state.firstName;
+      document.getElementById('inputLastName').value = ViewModel.state.lastName;
+      document.getElementById('inputEmail').value = ViewModel.state.email;
+      document.getElementById('inputPassword').value = ViewModel.state.password;
+      document.getElementById('inputConfirm').value = ViewModel.state.confirmPassword;
+      renderErrors();
+    }
+
+    // ==========================================
+    // PRESET SCENARIO BUTTONS
+    // ==========================================
+    function fillInvalidScenario() {
+      resetToWelcome();
+      ViewModel.state.firstName = "123";
+      ViewModel.state.lastName = "!";
+      ViewModel.state.email = "bukan_email";
+      ViewModel.state.password = "12345";
+      ViewModel.state.confirmPassword = "berbeda";
+      syncDomWithState();
+      submitForm();
+    }
+
+    function fillValidScenario() {
+      resetToWelcome();
+      ViewModel.state.firstName = "Edgar";
+      ViewModel.state.lastName = "Jason";
+      ViewModel.state.email = "edgar.jason@yap.app";
+      ViewModel.state.password = "rahasia123";
+      ViewModel.state.confirmPassword = "rahasia123";
+      syncDomWithState();
+      submitForm();
+    }
+
+    function resetForm() {
+      resetToWelcome();
+      ViewModel.state.firstName = "";
+      ViewModel.state.lastName = "";
+      ViewModel.state.email = "";
+      ViewModel.state.password = "";
+      ViewModel.state.confirmPassword = "";
+      ViewModel.state.combinedFullName = "";
+      ViewModel.state.isSubmitSuccess = false;
+      ViewModel.state.firstNameError = null;
+      ViewModel.state.lastNameError = null;
+      ViewModel.state.emailError = null;
+      ViewModel.state.passwordError = null;
+      ViewModel.state.confirmPasswordError = null;
+      syncDomWithState();
+    }
+
+    // ==========================================
+    // 60-SECOND TIMER FOR DEMO REHEARSAL
+    // ==========================================
+    let timerInterval = null;
+    let timeLeft = 60;
+
+    function toggleTimer() {
+      const btn = document.getElementById('btnTimer');
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        btn.textContent = "Mulai Timer";
+      } else {
+        if (timeLeft <= 0) timeLeft = 60;
+        btn.textContent = "Hentikan";
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          const sec = timeLeft < 10 ? '0' + timeLeft : timeLeft;
+          document.getElementById('timerText').textContent = `00:${sec}`;
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            btn.textContent = "Ulangi";
+            alert("⏱️ 60 Detik Berakhir! Durasi rekaman demo pas.");
+          }
+        }, 1000);
+      }
+    }
+
+    // Init
+    syncDomWithState();
+  </script>
+</body>
+</html>

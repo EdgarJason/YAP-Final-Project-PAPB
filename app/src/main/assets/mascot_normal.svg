@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mascotBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4F8EF7" />
+      <stop offset="60%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+
+    <linearGradient id="bellySoftGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#93C5FD" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#60A5FA" stop-opacity="0.15" />
+    </linearGradient>
+
+    <linearGradient id="earGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#93C5FD" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+
+    <radialGradient id="sparkleGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#C7DCFF" stop-opacity="0.8" />
+    </radialGradient>
+  </defs>
+
+  <g opacity="0.85">
+    <path d="M 28 42 Q 28 52 18 52 Q 28 52 28 62 Q 28 52 38 52 Q 28 52 28 42 Z" fill="url(#sparkleGrad)" />
+    <path d="M 172 65 Q 172 75 162 75 Q 172 75 172 85 Q 172 75 182 75 Q 172 75 172 65 Z" fill="url(#sparkleGrad)" />
+    <path d="M 32 110 Q 32 118 24 118 Q 32 118 32 126 Q 32 118 40 118 Q 32 118 32 110 Z" fill="url(#sparkleGrad)" opacity="0.6" />
+  </g>
+
+  <ellipse cx="100" cy="180" rx="52" ry="9" fill="#93C5FD" opacity="0.32" />
+
+  <g>
+    <!-- Left Ear -->
+    <path d="M 64 68 C 50 48, 72 32, 85 52 Z" fill="url(#mascotBodyGrad)" />
+    <path d="M 67 63 C 58 50, 72 40, 80 52 Z" fill="url(#earGradient)" />
+
+    <!-- Right Ear -->
+    <path d="M 136 68 C 150 48, 128 32, 115 52 Z" fill="url(#mascotBodyGrad)" />
+    <path d="M 133 63 C 142 50, 128 40, 120 52 Z" fill="url(#earGradient)" />
+
+    <!-- Chubby Pear Body -->
+    <path d="
+      M 60 76
+      C 42 90, 36 122, 45 146
+      C 52 165, 70 174, 88 174
+      L 112 174
+      C 130 174, 148 165, 155 146
+      C 164 122, 158 90, 140 76
+      C 126 65, 74 65, 60 76 Z
+    " fill="url(#mascotBodyGrad)" />
+
+    <!-- Belly Highlight -->
+    <ellipse cx="100" cy="132" rx="38" ry="32" fill="url(#bellySoftGrad)" />
+
+    <!-- Feet -->
+    <ellipse cx="78" cy="174" rx="14" ry="8" fill="#1D4ED8" />
+    <ellipse cx="122" cy="174" rx="14" ry="8" fill="#1D4ED8" />
+
+    <!-- Left Paw (Cute Resting Paw) -->
+    <path d="M 44 116 C 30 120, 34 136, 48 132 C 54 130, 52 120, 44 116 Z" fill="#2563EB" />
+
+    <!-- Right Paw (Symmetric Cute Resting Paw) -->
+    <path d="M 156 116 C 170 120, 166 136, 152 132 C 146 130, 148 120, 156 116 Z" fill="#2563EB" />
+
+    <!-- Eyes (Normal) -->
+    <ellipse cx="78" cy="100" rx="9" ry="12" fill="#0F172A" />
+    <ellipse cx="80" cy="97" rx="3.5" ry="4.5" fill="#FFFFFF" />
+    <circle cx="75" cy="104" r="1.5" fill="#FFFFFF" />
+
+    <ellipse cx="122" cy="100" rx="9" ry="12" fill="#0F172A" />
+    <ellipse cx="124" cy="97" rx="3.5" ry="4.5" fill="#FFFFFF" />
+    <circle cx="119" cy="104" r="1.5" fill="#FFFFFF" />
+
+    <!-- Cheeks -->
+    <ellipse cx="66" cy="112" rx="7" ry="4" fill="#60A5FA" opacity="0.75" />
+    <ellipse cx="134" cy="112" rx="7" ry="4" fill="#60A5FA" opacity="0.75" />
+
+    <!-- Mouth -->
+    <path d="M 94 110 Q 100 116 106 110" fill="none" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+</svg>
