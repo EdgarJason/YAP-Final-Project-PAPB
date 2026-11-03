@@ -1,5 +1,7 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -57,6 +59,9 @@ fun ChatStudioScreen(
     var input by rememberSaveable { mutableStateOf("") }
     val generation by studioViewModel.state.collectAsState()
     val submitted = generation.prompt
+    val saveApk = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
+    ) { destination -> destination?.let(studioViewModel::saveApk) }
     var confirmNew by remember { mutableStateOf(false) }
 
     // Actual provider request state is owned by the ViewModel.
@@ -287,6 +292,7 @@ fun ChatStudioScreen(
                                     GenerationStatus(
                                         state = generation,
                                         onRetry = studioViewModel::retry,
+                                        onDownload = { saveApk.launch("yap-app.apk") },
                                         expanded = showLogDetail,
                                         onToggle = { showLogDetail = !showLogDetail },
                                         onPreview = { tab = 1 },
@@ -426,7 +432,7 @@ fun ChatStudioScreen(
                                 shape = RoundedCornerShape(14.dp),
                                 trailingIcon = {
                                     IconButton(
-                                        enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading,
+                                        enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading && !generation.downloading,
                                         modifier = Modifier.size(48.dp),
                                         onClick = {
                                             showLogDetail = false
@@ -443,6 +449,15 @@ fun ChatStudioScreen(
                                     }
                                 }
                             )
+                            Button(
+                                enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading && !generation.downloading,
+                                onClick = {
+                                    studioViewModel.buildApk(input.trim())
+                                    input = ""
+                                    focus.clearFocus()
+                                },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            ) { Text("Generate APK") }
                         }
                     }
                 }
@@ -465,6 +480,7 @@ fun ChatStudioScreen(
 private fun GenerationStatus(
     state: StudioUiState,
     onRetry: () -> Unit,
+    onDownload: () -> Unit,
     expanded: Boolean,
     onToggle: () -> Unit,
     onPreview: () -> Unit,
@@ -477,6 +493,10 @@ private fun GenerationStatus(
                 YapMascot(mood = if (state.loading) MascotMood.Thinking else MascotMood.Happy,
                     size = 56.dp, showSpeechBubble = false)
                 Text(when {
+                    state.apkMode && state.error != null -> "Build APK belum selesai"
+                    state.apkMode && state.apk?.status == "ready" -> "APK siap diunduh"
+                    state.apkMode && state.apk?.status == "building" -> "Muse sedang membuat APK…"
+                    state.apkMode -> "Menunggu Muse mengambil tugas…"
                     state.loading -> "Muse Spark sedang menulis aplikasi…"
                     state.error != null -> "Aplikasi belum berhasil diperbarui"
                     else -> "Aplikasi siap dicoba"
@@ -492,6 +512,13 @@ private fun GenerationStatus(
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coba lagi") }
             }
+            if (state.apk?.status == "ready" && state.apkMode) {
+                Button(onClick = onDownload, enabled = !state.downloading, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(if (state.downloading) "Mengunduh APK…" else "Unduh APK")
+                }
+                state.downloadMessage?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+            }
+            if (state.apkMode) return@Column
             TextButton(onClick = onToggle, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text(if (expanded) "Sembunyikan rincian" else "Rincian pembuatan")
             }
