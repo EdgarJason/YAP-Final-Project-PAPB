@@ -19,3 +19,4 @@ local.properties
 !.env.example
 node_modules/
 .vercel/
+/server/.build-jobs/
