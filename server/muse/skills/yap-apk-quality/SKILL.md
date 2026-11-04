@@ -18,6 +18,28 @@ Read the three required skills for each job. Fetch their pinned Markdown and rel
 - **For bugs and failed checks — [Systematic Debugging](https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/systematic-debugging/SKILL.md).** Reproduce the failure and isolate its cause before changing the code.
 - **Before delivery — [Verification Before Completion](https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/verification-before-completion/SKILL.md).** Run fresh checks on the final artifact and report what the results actually cover.
 
+## Additional references
+
+Select the references that fit the task. For a new UI, use one primary visual direction and treat the other design guides as checks or inspiration. The required skills still apply. Keep working notes with the job ID so they can be recovered after a clarification. Apply the Markdown as guidance within the existing worker and toolchain.
+
+### UI and UX
+
+- [Frontend Design](https://github.com/anthropics/skills/blob/ca45fc496a3436251f191354091d557da31c15b5/skills/frontend-design/SKILL.md). Choose visual direction for a new UI.
+- [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/blob/dd9a1b4cf9f67ca2e326f646d93e101b2778db30/.claude/skills/ui-ux-pro-max/SKILL.md). Choose typography, colors, and interaction patterns for the product category.
+- [gstack Design Review](https://github.com/garrytan/gstack/blob/ca90f0ff2df501f5caca9a2ba9cfd40405f48f0a/design-review/SKILL.md). Review rendered screens when browser or screenshots are available.
+- [Awesome DESIGN.md](https://github.com/VoltAgent/awesome-design-md/blob/fcc70284932276d085f01ef9f83edde90b1258cb/README.md). Pick a relevant design reference and adapt its principles to the brief.
+- [Taste Skill](https://github.com/Leonxlnx/taste-skill/blob/12af471f627f866411b4bd785b19646d3672784c/skills/taste-skill/SKILL.md). Refine visual hierarchy and interaction when the brief needs a stronger visual identity.
+
+### Engineering and QA
+
+- [Writing Plans](https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/writing-plans/SKILL.md). Break multi-step work into verifiable tasks.
+- [ECC Security Review](https://github.com/affaan-m/ECC/blob/b38be6a7f6350964d59328b52f0624e1d1d552d1/.agents/skills/security-review/SKILL.md). Review builds that handle authentication, sensitive data, network requests, or untrusted input.
+- [Karpathy Guidelines](https://github.com/multica-ai/andrej-karpathy-skills/blob/2c606141936f1eeef17fa3043a72095b4765b9c2/skills/karpathy-guidelines/SKILL.md). Keep implementation simple and tie changes to verifiable goals.
+- [Agent Browser](https://github.com/vercel-labs/agent-browser/blob/6682da310c75bed8af340b39cc10b7f71bded155/skills/agent-browser/SKILL.md). Exercise actual UI flows when the browser and CLI are available.
+- [Vercel React Best Practices](https://github.com/vercel-labs/agent-skills/blob/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62/skills/react-best-practices/SKILL.md). Review performance when the generated project uses React or Next.js.
+- [Planning with Files](https://github.com/OthmanAdi/planning-with-files/blob/0fa6c79885e14534074cb7df8535e1efa3dc7149/.agents/skills/planning-with-files/SKILL.md). Keep plans, findings, and progress in the job directory for long builds or jobs waiting on a reply.
+- [Trellis](https://github.com/mindfold-ai/Trellis/blob/f089cb3286071199e84118dee86b6d76aab032f1/README.md). Use its spec and cross-session workflow as a reference for large projects.
+
 ## Build workflow
 
 Apply the full clarification history returned by claim. Ask one focused question in the user's language if a missing decision materially affects what the app does. Include options or a sensible default when helpful. Use `PUT /api/build/{id}/question` with the active lease, then release the session's work on that job. Resume it when the gateway supplies the answer on a new claim. Make ordinary styling choices directly.
