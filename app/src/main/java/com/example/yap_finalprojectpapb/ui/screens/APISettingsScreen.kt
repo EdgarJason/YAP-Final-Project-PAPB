@@ -76,9 +76,9 @@ fun APISettingsScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                Text("Muse Spark 1.3", style = MaterialTheme.typography.titleMedium)
+                Text("Muse AI", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Hubungkan ke server YAP milik pengelola. Kunci API Muse disimpan di server.",
+                Text("Hubungkan YAP ke gateway untuk mengirim tugas APK ke Muse.",
                     style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(24.dp))
                 AppTextField(label = "Alamat server YAP", value = serverUrl,
