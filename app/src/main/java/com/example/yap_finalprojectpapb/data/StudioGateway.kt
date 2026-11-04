@@ -16,6 +16,8 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+internal const val defaultGatewayUrl = "https://peculiar-deodorant-delegator.ngrok-free.dev"
+
 data class GatewaySettings(val url: String = "", val token: String = "")
 data class SavedApkBuild(val id: String, val prompt: String, val gatewayUrl: String)
 
@@ -68,7 +70,8 @@ class GatewaySettingsStore(context: Context) {
                 String(doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8)
             }
         }.getOrDefault("")
-        return GatewaySettings(preferences.getString("url", "") ?: "", token)
+        val url = preferences.getString("url", null).orEmpty().ifBlank { defaultGatewayUrl }
+        return GatewaySettings(url, token)
     }
 
     fun save(settings: GatewaySettings) {

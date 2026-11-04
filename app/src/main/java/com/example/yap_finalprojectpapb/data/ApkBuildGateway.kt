@@ -32,6 +32,9 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
             connectTimeout = 10_000
             readTimeout = 20_000
             setRequestProperty("Authorization", "Bearer ${settings.token}")
+            if (settings.url == defaultGatewayUrl) {
+                setRequestProperty("ngrok-skip-browser-warning", "1")
+            }
         }
     }
 
