@@ -57,6 +57,14 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
     }
     const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail)$/.test(url);
     if (!matches(req.headers.authorization, worker ? env.YAP_WORKER_TOKEN : env.YAP_ACCESS_TOKEN)) {
+      if (method === 'POST' && url === '/api/build/claim' && env.YAP_AUTH_DIAGNOSTICS === '1') {
+        const authorization = req.headers.authorization || '';
+        const kind = !authorization ? 'missing'
+          : authorization.startsWith('Bearer hsurr:') ? 'unresolved-surrogate'
+          : authorization.startsWith('Bearer ') ? 'invalid-bearer'
+          : 'unexpected-scheme';
+        console.info(`[YAP] worker authentication rejected: ${kind}`);
+      }
       return reply(res, 401, { error: 'Token tidak valid.' });
     }
     if (method === 'POST' && url === '/api/build') {
