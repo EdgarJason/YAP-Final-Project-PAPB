@@ -56,9 +56,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         pollBuild(prompt.trim())
     }
 
-    private fun pollBuild(prompt: String) {
+    fun answerBuild(answer: String) {
+        val current = mutableState.value
+        val question = current.apk?.clarification ?: return
+        if (current.loading || current.apk.status != "awaiting_answer" || answer.isBlank() || answer.length > 1200) return
+        pollBuild(current.prompt, question.id to answer.trim())
+    }
+
+    private fun pollBuild(prompt: String, answer: Pair<String, String>? = null) {
         val id = checkNotNull(buildId)
-        mutableState.update { it.copy(prompt = prompt, apk = null, loading = true, error = null, downloadMessage = null) }
+        mutableState.update { it.copy(prompt = prompt, apk = if (answer == null) null else it.apk,
+            loading = true, error = null, downloadMessage = null) }
         request = viewModelScope.launch {
             try {
                 val session = apkGateway.session()
@@ -70,12 +78,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     buildOrigin = session.url
                 }
                 apkSession = session
-                var job = apkGateway.submit(session, id, prompt)
+                var job = if (answer == null) apkGateway.submit(session, id, prompt)
+                    else apkGateway.answer(session, id, answer.first, answer.second)
                 repeat(180) {
                     check(job.id == id) { "ID respons APK tidak sesuai." }
                     mutableState.update { it.copy(apk = job) }
                     when (job.status) {
-                        "ready" -> {
+                        "ready", "awaiting_answer" -> {
                             mutableState.update { it.copy(loading = false) }
                             return@launch
                         }
