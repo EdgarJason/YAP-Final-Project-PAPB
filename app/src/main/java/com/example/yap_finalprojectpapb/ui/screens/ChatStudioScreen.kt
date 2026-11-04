@@ -65,7 +65,6 @@ fun ChatStudioScreen(
     var confirmNew by remember { mutableStateOf(false) }
 
     // Actual provider request state is owned by the ViewModel.
-    var showLogDetail by rememberSaveable { mutableStateOf(false) }
     var selectedFile by rememberSaveable { mutableStateOf("index.html") }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     val chatScroll = rememberScrollState()
@@ -83,7 +82,6 @@ fun ChatStudioScreen(
         input = ""
         studioViewModel.reset()
         tab = 0
-        showLogDetail = false
         selectedFile = "index.html"
         fullscreen = false
         codeScrollStates.removeState("index.html")
@@ -91,10 +89,8 @@ fun ChatStudioScreen(
         confirmNew = false
     }
 
-    val defaultHtml = generation.html.ifBlank {
-        """<!DOCTYPE html><html lang="id"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:sans-serif;padding:24px;color:#042e59"><h2>Pratinjau aplikasi</h2><p>Kirim ide di tab Chat. Hasil Muse Spark akan tampil di sini setelah selesai.</p></body></html>"""
-    }
-    val currentCode = generation.html.ifBlank { "<!-- Kode hasil Muse Spark akan tampil setelah aplikasi selesai dibuat. -->" }
+    val defaultHtml = """<!DOCTYPE html><html lang="id"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:sans-serif;padding:24px;color:#042e59"><h2>Pratinjau aplikasi</h2><p>Unduh dan pasang APK dari tab Chat untuk mencoba aplikasi di Android.</p></body></html>"""
+    val currentCode = "<!-- Kode sumber tidak disertakan dalam hasil APK. -->"
 
     BackHandler(drawer.isOpen || fullscreen || (tab == 1 && previewState.canGoBack)) {
         when {
@@ -245,7 +241,7 @@ fun ChatStudioScreen(
                                     )
                                     Spacer(Modifier.height(6.dp))
                                     Text(
-                                        "Jelaskan aplikasi web yang kamu inginkan. Muse Spark akan menulis kodenya untukmu.",
+                                        "Jelaskan aplikasi Android yang kamu inginkan. Muse akan membuat APK yang bisa kamu unduh.",
                                         style = type.bodyMedium,
                                         color = Neutral500,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -262,7 +258,7 @@ fun ChatStudioScreen(
                                         Text("Butuh inspirasi ide?", style = type.titleSmall, fontWeight = FontWeight.Bold, color = BlueDarker)
                                         Spacer(Modifier.height(8.dp))
                                         IdeaRow(Icons.Outlined.Calculate, "Kalkulator Portabel", "Hitung cepat dengan tombol besar dan riwayat") {
-                                            input = "Buatkan aplikasi kalkulator web dengan riwayat perhitungan dan tema bersih."; requester.requestFocus()
+                                            input = "Buatkan APK kalkulator dengan riwayat perhitungan dan tema bersih."; requester.requestFocus()
                                         }
                                         Spacer(Modifier.height(8.dp))
                                         IdeaRow(Icons.Outlined.EditNote, "Catatan Pribadi", "Simpan catatan dengan kategori warna dan pencarian") {
@@ -292,11 +288,7 @@ fun ChatStudioScreen(
                                     GenerationStatus(
                                         state = generation,
                                         onRetry = studioViewModel::retry,
-                                        onDownload = { saveApk.launch("yap-app.apk") },
-                                        expanded = showLogDetail,
-                                        onToggle = { showLogDetail = !showLogDetail },
-                                        onPreview = { tab = 1 },
-                                        onCode = { tab = 2 }
+                                        onDownload = { saveApk.launch("yap-app.apk") }
                                     )
                                 }
                             }
@@ -423,7 +415,7 @@ fun ChatStudioScreen(
                                 value = input,
                                 onValueChange = { input = it },
                                 modifier = Modifier.fillMaxWidth().focusRequester(requester),
-                                placeholder = { Text("Ketik ide aplikasi web yang ingin kamu buat...", fontSize = 14.sp) },
+                                placeholder = { Text("Ketik ide aplikasi Android...", fontSize = 14.sp) },
                                 maxLines = 4,
                                 isError = input.length > 6000,
                                 supportingText = {
@@ -435,8 +427,7 @@ fun ChatStudioScreen(
                                         enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading && !generation.downloading,
                                         modifier = Modifier.size(48.dp),
                                         onClick = {
-                                            showLogDetail = false
-                                            studioViewModel.generate(input.trim())
+                                            studioViewModel.buildApk(input.trim())
                                             input = ""
                                             focus.clearFocus()
                                         }
@@ -449,15 +440,6 @@ fun ChatStudioScreen(
                                     }
                                 }
                             )
-                            Button(
-                                enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading && !generation.downloading,
-                                onClick = {
-                                    studioViewModel.buildApk(input.trim())
-                                    input = ""
-                                    focus.clearFocus()
-                                },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            ) { Text("Generate APK") }
                         }
                     }
                 }
@@ -480,11 +462,7 @@ fun ChatStudioScreen(
 private fun GenerationStatus(
     state: StudioUiState,
     onRetry: () -> Unit,
-    onDownload: () -> Unit,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onPreview: () -> Unit,
-    onCode: () -> Unit
+    onDownload: () -> Unit
 ) {
     Surface(color = NeutralWhite, shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Neutral200), modifier = Modifier.fillMaxWidth()) {
@@ -493,13 +471,10 @@ private fun GenerationStatus(
                 YapMascot(mood = if (state.loading) MascotMood.Thinking else MascotMood.Happy,
                     size = 56.dp, showSpeechBubble = false)
                 Text(when {
-                    state.apkMode && state.error != null -> "Build APK belum selesai"
-                    state.apkMode && state.apk?.status == "ready" -> "APK siap diunduh"
-                    state.apkMode && state.apk?.status == "building" -> "Muse sedang membuat APK…"
-                    state.apkMode -> "Menunggu Muse mengambil tugas…"
-                    state.loading -> "Muse Spark sedang menulis aplikasi…"
-                    state.error != null -> "Aplikasi belum berhasil diperbarui"
-                    else -> "Aplikasi siap dicoba"
+                    state.error != null -> "Build APK belum selesai"
+                    state.apk?.status == "ready" -> "APK siap diunduh"
+                    state.apk?.status == "building" -> "Muse sedang membuat APK…"
+                    else -> "Menunggu Muse mengambil tugas…"
                 }, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.titleSmall, color = BlueDarker)
             }
@@ -512,25 +487,11 @@ private fun GenerationStatus(
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coba lagi") }
             }
-            if (state.apk?.status == "ready" && state.apkMode) {
+            if (state.apk?.status == "ready") {
                 Button(onClick = onDownload, enabled = !state.downloading, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(if (state.downloading) "Mengunduh APK…" else "Unduh APK")
                 }
                 state.downloadMessage?.let { Text(it, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
-            }
-            if (state.apkMode) return@Column
-            TextButton(onClick = onToggle, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(if (expanded) "Sembunyikan rincian" else "Rincian pembuatan")
-            }
-            if (expanded) {
-                Text("Model: Muse Spark 1.3\nKode HTML, CSS, dan JavaScript digabung dalam index.html. Hasil belum menjalani pengujian otomatis.",
-                    style = MaterialTheme.typography.bodySmall, color = Neutral500)
-            }
-            if (state.html.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onPreview, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Coba Aplikasi") }
-                    OutlinedButton(onClick = onCode, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Lihat Kode") }
-                }
             }
         }
     }

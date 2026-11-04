@@ -31,7 +31,7 @@ class StudioStateRegressionTest {
         compose.onNodeWithContentDescription("Salin Kode").assertHeightIsAtLeast(48.dp).performClick()
         compose.runOnIdle {
             val clipboard = compose.activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            assertTrue(clipboard.primaryClip!!.getItemAt(0).text.contains("Kode hasil Muse Spark"))
+            assertTrue(clipboard.primaryClip!!.getItemAt(0).text.contains("Kode sumber tidak disertakan"))
         }
         compose.onNodeWithContentDescription("Layar penuh kode").performClick()
         compose.onNode(hasText("index.html") and isSelectable()).assertIsSelected()
@@ -85,8 +85,7 @@ class StudioStateRegressionTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Coba lagi").assertIsDisplayed()
-        compose.onNodeWithText("Rincian pembuatan").performClick()
-        compose.onNodeWithText("Model: Muse Spark 1.3", substring = true).assertExists()
+        compose.onNodeWithText("Generate APK").assertDoesNotExist()
     }
 
     private fun browser(): WebView {

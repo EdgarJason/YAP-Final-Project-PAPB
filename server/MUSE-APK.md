@@ -1,12 +1,16 @@
 # Build APK lewat Muse Secure VM
 
-Tombol **Generate APK** mengirim tugas ke gateway dan mengecek hasil setiap lima detik. Tombol **Unduh APK** menyimpan file melalui pemilih file Android setelah ukuran dan SHA-256 cocok dengan status tugas. Pembuatan web langsung lewat Muse Spark tetap tersedia melalui tombol kirim di kolom chat.
+Tombol panah **Kirim** mengirim tugas ke gateway dan mengecek hasil setiap lima detik. Tombol **Unduh APK** menyimpan file melalui pemilih file Android setelah ukuran dan SHA-256 cocok dengan status tugas.
 
 ## Menjalankan gateway
 
-Jalankan `npm start` dari folder `server`. Isi `YAP_ACCESS_TOKEN` dan `YAP_WORKER_TOKEN` dengan dua token acak berbeda, masing-masing minimal 32 karakter, melalui `.env` atau secret pada host. Masukkan URL dasar HTTPS dan token Android di **Pengaturan AI**. Simpan token worker hanya di pengaturan konektor atau secret worker Muse. `META_API_KEY` hanya diperlukan untuk pembuatan web langsung.
+Jalankan `npm start` dari folder `server`. Isi `YAP_ACCESS_TOKEN` dan `YAP_WORKER_TOKEN` dengan dua token acak berbeda, masing-masing minimal 32 karakter, melalui `.env` atau secret pada host. Masukkan URL dasar HTTPS dan token Android di **Pengaturan AI**. Simpan token worker hanya di pengaturan konektor atau secret worker Muse. Jalur APK ini menggunakan hook Muse AI.
 
 Antrean dan APK disimpan di `YAP_BUILD_DIR` (default `.build-jobs`). Gunakan satu proses Node dengan disk persisten. Route antrean dilayani oleh `local.mjs` dan memerlukan host atau tunnel HTTPS yang mengarah ke proses itu. Konfigurasi Vercel yang ada hanya melayani generator web. Pindahkan folder antrean ke disk persisten jika host mempunyai filesystem sementara.
+
+## Keluar dari YAP saat build berjalan
+
+Gateway dan Muse menangani build di luar proses Android. YAP menyimpan tugas terakhir sebelum mengirimnya. Setelah dibuka ulang dan masuk ke Chat Studio, YAP mengambil status tugas yang sama, termasuk APK yang sudah siap. Membuka aplikasi kembali tidak membuat tugas kedua. Untuk melanjutkan tugas lama, gunakan alamat gateway yang sama.
 
 ## Handoff ke Betakaroten
 
@@ -28,13 +32,15 @@ Klaim kosong menghasilkan output kosong. Gunakan `result` setelah APK berhasil d
 
 Instruksi untuk sesi yang dibangunkan:
 
+Sebelum mengerjakan setiap tugas, baca [panduan kualitas APK](muse/skills/yap-apk-quality/SKILL.md) dari checkout YAP. Tambahkan langkah itu ke prompt hook yang sudah aktif dan pertahankan helper konektor yang berfungsi di Secure VM.
+
 > Ambil tugas dengan POST /api/build/claim memakai Bearer token worker dari koneksi aman. Jika status 204, antrean kosong. Respons 200 membawa id, prompt, dan lease. Gunakan prompt sebagai spesifikasi aplikasi. Buat satu index.html mandiri, lalu bungkus menjadi APK dengan alat Android SDK yang sudah berhasil dipakai di Secure VM. Verifikasi APK dengan apksigner. Unggah biner APK dengan PUT /api/build/{id}/result, Content-Type application/vnd.android.package-archive, Authorization Bearer token worker, dan X-YAP-Lease berisi lease klaim. Batas APK 32 MiB. Jika build gagal, kirim PUT /api/build/{id}/fail dengan token dan lease yang sama. Jangan tulis token di log, prompt, atau berkas hasil. Setelah menyelesaikan tugas, ambil klaim berikutnya sampai respons 204.
 
 Klaim berlaku sepuluh menit. Klaim kedaluwarsa bisa diambil ulang. Hasil dari klaim lama ditolak. Untuk demo pertama, kirim satu tugas dan cek bahwa hook kembali melihat sinyal false setelah klaim.
 
 ## Uji demo
 
-1. Dari YAP, masukkan ide kalkulator dan tekan **Generate APK**.
+1. Dari YAP, masukkan ide kalkulator dan tekan panah **Kirim**.
 2. Tunggu status berubah dari **Menunggu Muse mengambil tugas** menjadi **Muse sedang membuat APK**.
 3. Pilih **Unduh APK**, simpan file, dan buka dari pengelola file Android untuk memasang dan mencoba aplikasi.
 4. Catat waktu mulai hingga tombol unduh muncul dan periksa apakah Muse meminta izin saat upload.

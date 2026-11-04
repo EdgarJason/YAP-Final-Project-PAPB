@@ -17,10 +17,38 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 data class GatewaySettings(val url: String = "", val token: String = "")
+data class SavedApkBuild(val id: String, val prompt: String, val gatewayUrl: String)
 
 /** Only the gateway access token is stored on-device. The Muse key stays on the server. */
 class GatewaySettingsStore(context: Context) {
     private val preferences = context.getSharedPreferences("yap_gateway", Context.MODE_PRIVATE)
+
+    fun loadApkBuild(): SavedApkBuild? {
+        val raw = preferences.getString("active_apk_build", null) ?: return null
+        return runCatching {
+            val data = Json.parseToJsonElement(raw).jsonObject
+            SavedApkBuild(
+                data.getValue("id").jsonPrimitive.content,
+                data.getValue("prompt").jsonPrimitive.content,
+                data.getValue("gatewayUrl").jsonPrimitive.content
+            )
+        }.getOrNull()
+    }
+
+    fun saveApkBuild(build: SavedApkBuild) {
+        val data = buildJsonObject {
+            put("id", build.id)
+            put("prompt", build.prompt)
+            put("gatewayUrl", build.gatewayUrl)
+        }
+        check(preferences.edit().putString("active_apk_build", data.toString()).commit()) {
+            "Tugas APK tidak dapat disimpan di perangkat."
+        }
+    }
+
+    fun clearApkBuild() {
+        preferences.edit().remove("active_apk_build").apply()
+    }
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
