@@ -7,12 +7,16 @@ Treat the claimed prompt as the application specification. Keep the existing YAP
 
 ## Skills to load
 
-Read the two required skills for each job. Fetch their pinned Markdown and relevant companion references from the same revision, and reuse a local cache. Use the guides within this build's scope and inspect any upstream helper before executing it.
+Read the three required skills for each job. Fetch their pinned Markdown and relevant companion references from the same revision, and reuse a local cache. Apply upstream guides within this build's scope. Use the tools already available in the VM and keep installation, publishing, and agent configuration steps outside the job.
 
 - **Required — [Impeccable](https://github.com/pbakaus/impeccable/blob/f864521bbb1c9350e8f6cf7742c139a04a1020af/.agents/skills/impeccable/SKILL.md).** Set a visual direction and use its critique and polish guidance before packaging.
 - **Required — [Ask Matt](https://github.com/mattpocock/skills/blob/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills/engineering/ask-matt/SKILL.md).** Use its engineering skill routing to plan, clarify, or debug the work. Route any user-facing question through YAP's clarification endpoint.
+- **Required — [Anti Slop](https://github.com/miqdadbadjuber/anti-slop/blob/941b1532f9cc8ffde766bca5921d75257c9e5762/skills/antislop/SKILL.md).** Use its `during` mode as the YAP project default. Apply it while planning and implementing, then check for generic layouts, filler copy, placeholder interactions, and needless code before packaging. Use the job's design brief as direction and ask through YAP only when a missing decision materially affects the app.
 - **For WebView and web UI — [Vercel Web Interface Guidelines](https://github.com/vercel-labs/web-interface-guidelines/blob/434b7f91364665f2f733b310ec54809bf8f37937/command.md).** Check accessibility, keyboard behavior, forms, and responsive layout.
 - **For runnable web builds — [Anthropic Web App Testing](https://github.com/anthropics/skills/blob/ca45fc496a3436251f191354091d557da31c15b5/skills/webapp-testing/SKILL.md).** Use Playwright when available to exercise the actual app in a browser before packaging.
+- **For multi-screen flows — [UX Audit](https://github.com/Flagrare/agent-skills/blob/0d6f99db2c7da5d7df4532ca62a6ea9fb9db2ca0/plugins/flagrare/skills/ux-audit/SKILL.md).** Walk the main flow as a first-time user with the available browser or emulator. Check unclear labels, dead ends, and recovery from empty or error states.
+- **For bugs and failed checks — [Systematic Debugging](https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/systematic-debugging/SKILL.md).** Reproduce the failure and isolate its cause before changing the code.
+- **Before delivery — [Verification Before Completion](https://github.com/obra/superpowers/blob/22f0b463e7a5e579904dd6211a520321035526f7/skills/verification-before-completion/SKILL.md).** Run fresh checks on the final artifact and report what the results actually cover.
 
 ## Build workflow
 
