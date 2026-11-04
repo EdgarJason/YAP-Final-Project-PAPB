@@ -12,7 +12,12 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.security.MessageDigest
 
-data class ApkBuild(val id: String, val status: String, val sha256: String?, val size: Long?)
+data class BuildClarification(val id: String, val question: String, val answer: String?)
+
+data class ApkBuild(
+    val id: String, val status: String, val sha256: String?, val size: Long?,
+    val clarification: BuildClarification? = null
+)
 
 class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
     fun session(): GatewaySettings = settingsStore.load().also {
@@ -46,6 +51,12 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
 
     suspend fun status(settings: GatewaySettings, id: String): ApkBuild = request(settings, "/api/build/$id")
 
+    suspend fun answer(settings: GatewaySettings, id: String, questionId: String, answer: String): ApkBuild =
+        request(settings, "/api/build/$id/answer", buildJsonObject {
+            put("questionId", questionId)
+            put("answer", answer)
+        }.toString())
+
     private suspend fun request(settings: GatewaySettings, path: String, body: String? = null): ApkBuild =
         withContext(Dispatchers.IO) {
             val connection = connect(settings, path, if (body == null) "GET" else "POST")
@@ -59,7 +70,7 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
                 }
                 checkResponse(connection)
                 val raw = connection.inputStream.use { input ->
-                    val buffer = ByteArray(4097)
+                    val buffer = ByteArray(16_385)
                     var size = 0
                     while (size < buffer.size) {
                         val read = input.read(buffer, size, buffer.size - size)
@@ -70,8 +81,12 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
                     String(buffer, 0, size, Charsets.UTF_8)
                 }
                 val json = Json.parseToJsonElement(raw).jsonObject
+                val clarification = (json["clarification"] as? JsonObject)?.let {
+                    BuildClarification(it.getValue("id").jsonPrimitive.content,
+                        it.getValue("question").jsonPrimitive.content, it["answer"]?.jsonPrimitive?.contentOrNull)
+                }
                 ApkBuild(json.getValue("id").jsonPrimitive.content, json.getValue("status").jsonPrimitive.content,
-                    json["sha256"]?.jsonPrimitive?.contentOrNull, json["size"]?.jsonPrimitive?.longOrNull)
+                    json["sha256"]?.jsonPrimitive?.contentOrNull, json["size"]?.jsonPrimitive?.longOrNull, clarification)
             } finally {
                 connection.disconnect()
             }

@@ -43,7 +43,10 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
     .map(file => read(file.slice(0, -5)))
     .filter(job => job && (job.status === 'queued' || (job.status === 'building' && job.expires <= now())))
     .sort((a, b) => a.created - b.created);
-  const publicJob = job => ({ id: job.id, status: job.status, sha256: job.sha256, size: job.size });
+  const publicJob = job => ({
+    id: job.id, status: job.status, sha256: job.sha256, size: job.size,
+    clarification: job.clarifications?.at(-1)
+  });
 
   return async (req, res) => {
     const { method, url } = req;
@@ -53,9 +56,12 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       return reply(res, 503, { error: 'Build APK belum dikonfigurasi.' });
     }
     if (method === 'GET' && url === '/api/build/signal') {
-      return reply(res, 200, { pending: pending().length > 0 });
+      const job = pending()[0];
+      if (!job) return reply(res, 200, { pending: false });
+      const wakeId = digest(JSON.stringify([job.id, job.clarifications?.length || 0, job.lease])).toString('hex');
+      return reply(res, 200, { pending: true, wakeId });
     }
-    const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail)$/.test(url);
+    const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail|question)$/.test(url);
     if (!matches(req.headers.authorization, worker ? env.YAP_WORKER_TOKEN : env.YAP_ACCESS_TOKEN)) {
       if (method === 'POST' && url === '/api/build/claim' && env.YAP_AUTH_DIAGNOSTICS === '1') {
         const authorization = req.headers.authorization || '';
@@ -92,12 +98,31 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       if (!job) return res.writeHead(204).end();
       Object.assign(job, { status: 'building', lease: randomUUID(), expires: now() + leaseTime });
       write(job);
-      return reply(res, 200, { id: job.id, prompt: job.prompt, lease: job.lease });
+      return reply(res, 200, { id: job.id, prompt: job.prompt, lease: job.lease, clarifications: job.clarifications || [] });
     }
-    const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail))?$/.exec(url);
+    const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail|question|answer))?$/.exec(url);
     const job = route && read(route[1]);
     if (!job) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
     if (method === 'GET' && !route[2]) return reply(res, 200, publicJob(job));
+    if (method === 'POST' && route[2] === 'answer') {
+      const body = await readBody(req, 16_384);
+      let data;
+      try { data = body && JSON.parse(body.toString()); } catch {}
+      const { questionId, answer } = data || {};
+      if (typeof answer !== 'string' || !answer.trim() || answer.length > 1200) {
+        return reply(res, 400, { error: 'Jawaban wajib diisi, maksimal 1200 karakter.' });
+      }
+      const current = read(job.id);
+      const question = current.clarifications?.find(entry => entry.id === questionId);
+      if (question?.answer === answer.trim()) return reply(res, 200, publicJob(current));
+      if (!question || question.answer || current.status !== 'awaiting_answer') {
+        return reply(res, 409, { error: 'Pertanyaan ini sudah tidak aktif.' });
+      }
+      question.answer = answer.trim();
+      current.status = 'queued';
+      write(current);
+      return reply(res, 200, publicJob(current));
+    }
     if (method === 'GET' && route[2] === 'apk' && job.status === 'ready') {
       const path = apkPath(job.id);
       res.writeHead(200, {
@@ -110,9 +135,29 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       return;
     }
     if (method === 'PUT' && worker) {
-      const owns = current => current.status === 'building' && current.expires > now()
+      const owns = current => current?.status === 'building' && current.expires > now()
         && current.lease === req.headers['x-yap-lease'];
       if (!owns(job)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+      if (route[2] === 'question') {
+        const body = await readBody(req, 8192);
+        let question;
+        try { question = body && JSON.parse(body.toString()).question; } catch {}
+        if (typeof question !== 'string' || !question.trim() || question.length > 600) {
+          return reply(res, 400, { error: 'Pertanyaan wajib diisi, maksimal 600 karakter.' });
+        }
+        const current = read(job.id);
+        if (!owns(current)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+        current.clarifications ||= [];
+        if (current.clarifications.length >= 5) {
+          return reply(res, 409, { error: 'Batas klarifikasi tercapai. Lanjutkan build.' });
+        }
+        current.clarifications.push({ id: randomUUID(), question: question.trim() });
+        current.status = 'awaiting_answer';
+        delete current.lease;
+        delete current.expires;
+        write(current);
+        return reply(res, 200, publicJob(current));
+      }
       if (route[2] === 'fail') {
         job.status = 'failed';
       } else {

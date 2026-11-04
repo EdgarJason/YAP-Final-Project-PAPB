@@ -68,6 +68,12 @@ fun ChatStudioScreen(
     var selectedFile by rememberSaveable { mutableStateOf("index.html") }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     val chatScroll = rememberScrollState()
+    val awaitingAnswer = generation.apk?.status == "awaiting_answer"
+    val inputLimit = if (awaitingAnswer) 1200 else 6000
+    LaunchedEffect(generation.apk?.clarification?.answer) {
+        val sentAnswer = generation.apk?.clarification?.answer
+        if (sentAnswer != null && input.trim() == sentAnswer) input = ""
+    }
     val codeScrollStates = rememberSaveableStateHolder()
     val previewState = rememberStudioPreviewState()
 
@@ -415,26 +421,33 @@ fun ChatStudioScreen(
                                 value = input,
                                 onValueChange = { input = it },
                                 modifier = Modifier.fillMaxWidth().focusRequester(requester),
-                                placeholder = { Text("Ketik ide aplikasi Android...", fontSize = 14.sp) },
+                                placeholder = {
+                                    Text(if (awaitingAnswer) "Jawab pertanyaan Muse..." else "Ketik ide aplikasi Android...",
+                                        fontSize = 14.sp)
+                                },
                                 maxLines = 4,
-                                isError = input.length > 6000,
+                                isError = input.length > inputLimit,
                                 supportingText = {
-                                    if (input.length > 6000) Text("Instruksi maksimal 6000 karakter.")
+                                    if (input.length > inputLimit) Text("Maksimal $inputLimit karakter.")
                                 },
                                 shape = RoundedCornerShape(14.dp),
                                 trailingIcon = {
                                     IconButton(
-                                        enabled = input.isNotBlank() && input.length <= 6000 && !generation.loading && !generation.downloading,
+                                        enabled = input.isNotBlank() && input.length <= inputLimit && !generation.loading && !generation.downloading,
                                         modifier = Modifier.size(48.dp),
                                         onClick = {
-                                            studioViewModel.buildApk(input.trim())
-                                            input = ""
+                                            if (awaitingAnswer) {
+                                                studioViewModel.answerBuild(input.trim())
+                                            } else {
+                                                studioViewModel.buildApk(input.trim())
+                                                input = ""
+                                            }
                                             focus.clearFocus()
                                         }
                                     ) {
                                         Icon(
                                             Icons.AutoMirrored.Outlined.Send,
-                                            "Kirim ide",
+                                            if (awaitingAnswer) "Kirim jawaban" else "Kirim ide",
                                             tint = if (input.isNotBlank()) BlueNormal else Neutral400
                                         )
                                     }
@@ -473,14 +486,24 @@ private fun GenerationStatus(
                 Text(when {
                     state.error != null -> "Build APK belum selesai"
                     state.apk?.status == "ready" -> "APK siap diunduh"
+                    state.apk?.status == "awaiting_answer" -> "Muse menunggu jawabanmu"
                     state.apk?.status == "building" -> "Muse sedang membuat APK…"
                     else -> "Menunggu Muse mengambil tugas…"
                 }, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.titleSmall, color = BlueDarker)
             }
+            state.apk?.clarification?.let { clarification ->
+                Text("Pertanyaan Muse", style = MaterialTheme.typography.labelMedium, color = BlueDarker)
+                Text(clarification.question, style = MaterialTheme.typography.bodyMedium, color = BlueDarker)
+                clarification.answer?.let {
+                    Text("Jawabanmu", style = MaterialTheme.typography.labelMedium, color = BlueDarker)
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = BlueDarker)
+                }
+            }
             if (state.loading) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text("Proses dapat memerlukan beberapa menit.", style = MaterialTheme.typography.bodySmall)
+                Text(if (state.apk?.status == "awaiting_answer") "Mengirim jawaban…"
+                else "Proses dapat memerlukan beberapa menit.", style = MaterialTheme.typography.bodySmall)
             }
             state.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error,

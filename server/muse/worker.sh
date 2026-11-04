@@ -17,7 +17,7 @@ case "${1:-}" in
     [[ "$#" -eq 1 ]] || exit 2
     request --request POST "$base/api/build/claim"
     ;;
-  result|fail)
+  result|fail|question)
     action="$1"
     id="${2:-}"
     lease="${3:-}"
@@ -30,13 +30,17 @@ case "${1:-}" in
       [[ "$#" -eq 4 && -f "$4" ]] || { echo 'Provide a signed APK file' >&2; exit 2; }
       "${APKSIGNER:-apksigner}" verify "$4"
       options+=(--header 'Content-Type: application/vnd.android.package-archive' --data-binary "@$4")
+    elif [[ "$action" == question ]]; then
+      [[ "$#" -eq 4 ]] || { echo 'Provide the clarification question' >&2; exit 2; }
+      json="$(jq -cn --arg question "$4" '{question: $question}')"
+      options+=(--header 'Content-Type: application/json' --data-binary "$json")
     else
       [[ "$#" -eq 3 ]] || exit 2
     fi
     request "${options[@]}" "$base/api/build/$id/$action"
     ;;
   *)
-    echo 'Usage: worker.sh claim | result ID LEASE FILE.apk | fail ID LEASE' >&2
+    echo 'Usage: worker.sh claim | result ID LEASE FILE.apk | fail ID LEASE | question ID LEASE TEXT' >&2
     exit 2
     ;;
 esac
