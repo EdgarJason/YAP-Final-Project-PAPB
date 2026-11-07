@@ -4,6 +4,8 @@ Tombol panah **Kirim** mengirim tugas ke gateway dan mengecek hasil setiap lima 
 
 ## Menjalankan gateway
 
+Build Android terbaru otomatis memakai gateway YAP bawaan dan membuat identitas acak yang disimpan terenkripsi pada instalasi pertama. Aktifkan `YAP_PUBLIC_BUILDS=1` untuk menerima pengguna baru langsung tanpa konfigurasi manual. Identitas tersebut hanya dapat mengakses tugas milik instalasi itu. Token worker tetap diperlukan untuk klaim, pertanyaan, dan unggah APK. Pengaturan gateway khusus dan token pengelola tetap didukung. Gateway dan hook Muse perlu aktif dan dapat dijangkau internet.
+
 Jalankan `npm start` dari folder `server`. Isi `YAP_ACCESS_TOKEN` dan `YAP_WORKER_TOKEN` dengan dua token acak berbeda, masing-masing minimal 32 karakter, melalui `.env` atau secret pada host. Masukkan URL dasar HTTPS dan token Android di **Pengaturan AI**. Simpan token worker hanya di pengaturan konektor atau secret worker Muse. Jalur APK ini menggunakan hook Muse AI.
 
 Antrean dan APK disimpan di `YAP_BUILD_DIR` (default `.build-jobs`). Gunakan satu proses Node dengan disk persisten. Route antrean dilayani oleh `local.mjs` dan memerlukan host atau tunnel HTTPS yang mengarah ke proses itu. Konfigurasi Vercel yang ada hanya melayani generator web. Pindahkan folder antrean ke disk persisten jika host mempunyai filesystem sementara.

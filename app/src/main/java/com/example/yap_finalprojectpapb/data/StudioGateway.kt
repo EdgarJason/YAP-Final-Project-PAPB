@@ -11,6 +11,7 @@ import kotlinx.serialization.json.*
 import java.net.HttpURLConnection
 import java.net.URI
 import java.security.KeyStore
+import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -62,7 +63,7 @@ class GatewaySettingsStore(context: Context) {
             }.generateKey()
     }
 
-    fun load(): GatewaySettings {
+    fun load(): GatewaySettings = synchronized(preferences) {
         val token = runCatching {
             val bytes = Base64.decode(preferences.getString("token", ""), Base64.NO_WRAP)
             if (bytes.size < 13) "" else Cipher.getInstance("AES/GCM/NoPadding").run {
@@ -71,6 +72,13 @@ class GatewaySettingsStore(context: Context) {
             }
         }.getOrDefault("")
         val url = preferences.getString("url", null).orEmpty().ifBlank { defaultGatewayUrl }
+        if (url.trimEnd('/') == defaultGatewayUrl && token.isBlank()) {
+            val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+            val guestToken = "guest_" + bytes.joinToString("") { "%02x".format(it.toInt() and 255) }
+            val settings = GatewaySettings(defaultGatewayUrl, guestToken)
+            save(settings)
+            return settings
+        }
         return GatewaySettings(url, token)
     }
 
