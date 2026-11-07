@@ -62,7 +62,11 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       return reply(res, 200, { pending: true, wakeId });
     }
     const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail|question)$/.test(url);
-    if (!matches(req.headers.authorization, worker ? env.YAP_WORKER_TOKEN : env.YAP_ACCESS_TOKEN)) {
+    const guestToken = env.YAP_PUBLIC_BUILDS === '1' && !worker
+      && /^Bearer guest_[a-f0-9]{64}$/.test(req.headers.authorization || '')
+      ? req.headers.authorization : null;
+    const owner = guestToken ? digest(guestToken).toString('hex') : null;
+    if (!owner && !matches(req.headers.authorization, worker ? env.YAP_WORKER_TOKEN : env.YAP_ACCESS_TOKEN)) {
       if (method === 'POST' && url === '/api/build/claim' && env.YAP_AUTH_DIAGNOSTICS === '1') {
         const authorization = req.headers.authorization || '';
         const kind = !authorization ? 'missing'
@@ -86,10 +90,11 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       }
       const existing = read(id);
       if (existing) {
+        if (owner && existing.owner !== owner) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
         if (existing.prompt !== prompt.trim()) return reply(res, 409, { error: 'ID sudah dipakai.' });
         return reply(res, 200, publicJob(existing));
       }
-      const job = { id, prompt: prompt.trim(), status: 'queued', created: now() };
+      const job = { id, prompt: prompt.trim(), status: 'queued', created: now(), ...(owner && { owner }) };
       write(job);
       return reply(res, 202, publicJob(job));
     }
@@ -103,6 +108,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
     const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail|question|answer))?$/.exec(url);
     const job = route && read(route[1]);
     if (!job) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
+    if (owner && job.owner !== owner) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
     if (method === 'GET' && !route[2]) return reply(res, 200, publicJob(job));
     if (method === 'POST' && route[2] === 'answer') {
       const body = await readBody(req, 16_384);
