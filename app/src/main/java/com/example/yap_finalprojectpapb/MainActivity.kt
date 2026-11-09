@@ -11,6 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalInspectionMode
+import com.example.yap_finalprojectpapb.ui.components.AppUpdateDialog
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
@@ -68,6 +72,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent() {
     val navController = rememberNavController()
+    var showUpdates by rememberSaveable { mutableStateOf(false) }
+    if (!LocalInspectionMode.current) {
+        AppUpdateDialog(showUpdates, onShow = { showUpdates = true }, onDismiss = { showUpdates = false })
+    }
 
     Scaffold(
         modifier = Modifier
@@ -168,6 +176,7 @@ fun MainAppContent() {
                     ChatStudioScreen(
                         onMenuClick = { navController.navigate(Routes.CHAT_HISTORY) },
                         onApiSettingsClick = { navController.navigate(Routes.API_SETTINGS) },
+                        onUpdateClick = { showUpdates = true },
                         onNewChatClick = { navController.navigate(Routes.CHAT_STUDIO) },
                         onProfileClick = { navController.navigate(Routes.PROFILE) },
                         onRecentSelect = { navController.navigate(Routes.CHAT_STUDIO) }
