@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, statSync, createReadStream } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { unzipSync, strFromU8 } from 'fflate';
 
 const maxApk = 32 * 1024 * 1024;
 const leaseTime = 10 * 60_000;
@@ -45,7 +46,8 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
     .sort((a, b) => a.created - b.created);
   const publicJob = job => ({
     id: job.id, status: job.status, sha256: job.sha256, size: job.size,
-    clarification: job.clarifications?.at(-1)
+    clarification: job.clarifications?.at(-1), clarifications: job.clarifications || [], message: job.message,
+    appName: job.appName
   });
 
   return async (req, res) => {
@@ -61,7 +63,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       const wakeId = digest(JSON.stringify([job.id, job.clarifications?.length || 0, job.lease])).toString('hex');
       return reply(res, 200, { pending: true, wakeId });
     }
-    const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail|question)$/.test(url);
+    const worker = url === '/api/build/claim' || /^\/api\/build\/[\da-f-]{36}\/(result|fail|question|message|metadata)$/.test(url);
     const guestToken = env.YAP_PUBLIC_BUILDS === '1' && !worker
       && /^Bearer guest_[a-f0-9]{64}$/.test(req.headers.authorization || '')
       ? req.headers.authorization : null;
@@ -78,10 +80,13 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       return reply(res, 401, { error: 'Token tidak valid.' });
     }
     if (method === 'POST' && url === '/api/build') {
-      const body = await readBody(req, 32_768);
+      const body = await readBody(req, 131_072);
       let data;
       try { data = body && JSON.parse(body.toString()); } catch {}
-      const { id, prompt } = data || {};
+      const { id, prompt, context = '' } = data || {};
+      if (typeof context !== 'string' || context.length > 12_000) {
+        return reply(res, 400, { error: 'Konteks percakapan terlalu panjang.' });
+      }
       if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 6000) {
         return reply(res, 400, { error: 'Prompt wajib diisi, maksimal 6000 karakter.' });
       }
@@ -94,7 +99,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
         if (existing.prompt !== prompt.trim()) return reply(res, 409, { error: 'ID sudah dipakai.' });
         return reply(res, 200, publicJob(existing));
       }
-      const job = { id, prompt: prompt.trim(), status: 'queued', created: now(), ...(owner && { owner }) };
+      const job = { id, prompt: prompt.trim(), context, status: 'queued', created: now(), ...(owner && { owner }) };
       write(job);
       return reply(res, 202, publicJob(job));
     }
@@ -103,13 +108,23 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       if (!job) return res.writeHead(204).end();
       Object.assign(job, { status: 'building', lease: randomUUID(), expires: now() + leaseTime });
       write(job);
-      return reply(res, 200, { id: job.id, prompt: job.prompt, lease: job.lease, clarifications: job.clarifications || [] });
+      return reply(res, 200, { id: job.id, prompt: job.prompt, context: job.context || '', lease: job.lease, clarifications: job.clarifications || [] });
     }
-    const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail|question|answer))?$/.exec(url);
+    const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail|question|answer|message|preview|metadata))?$/.exec(url);
     const job = route && read(route[1]);
     if (!job) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
     if (owner && job.owner !== owner) return reply(res, 404, { error: 'Tugas tidak ditemukan.' });
     if (method === 'GET' && !route[2]) return reply(res, 200, publicJob(job));
+    if (method === 'GET' && route[2] === 'preview' && job.status === 'ready') {
+      try {
+        const files = unzipSync(readFileSync(apkPath(job.id)), {
+          filter: entry => entry.name === 'assets/index.html' && entry.originalSize <= 2 * 1024 * 1024
+        });
+        const html = files['assets/index.html'];
+        if (html) return reply(res, 200, { html: strFromU8(html) });
+      } catch {}
+      return reply(res, 404, { error: 'Pratinjau web tidak tersedia untuk APK ini.' });
+    }
     if (method === 'POST' && route[2] === 'answer') {
       const body = await readBody(req, 16_384);
       let data;
@@ -133,7 +148,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       const path = apkPath(job.id);
       res.writeHead(200, {
         'Content-Type': 'application/vnd.android.package-archive',
-        'Content-Disposition': 'attachment; filename="yap-app.apk"',
+        'Content-Disposition': "attachment; filename*=UTF-8''" + encodeURIComponent((job.appName || 'Aplikasi-' + job.id.slice(0, 8)) + '.apk'),
         'Content-Length': statSync(path).size,
         'Cache-Control': 'no-store'
       });
@@ -144,6 +159,34 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       const owns = current => current?.status === 'building' && current.expires > now()
         && current.lease === req.headers['x-yap-lease'];
       if (!owns(job)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+      if (route[2] === 'metadata') {
+        const body = await readBody(req, 2048);
+        let appName;
+        try { appName = body && JSON.parse(body.toString()).appName; } catch {}
+        if (typeof appName !== 'string' || !appName.trim() || appName.length > 80 || /[\u0000-\u001f\u007f]/.test(appName)) {
+          return reply(res, 400, { error: 'Nama aplikasi wajib diisi, maksimal 80 karakter.' });
+        }
+        const current = read(job.id);
+        if (!owns(current)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+        current.appName = appName.trim();
+        write(current);
+        return reply(res, 200, publicJob(current));
+      }
+      if (route[2] === 'message') {
+        const body = await readBody(req, 40_960);
+        let message;
+        try { message = body && JSON.parse(body.toString()).message; } catch {}
+        if (typeof message !== 'string' || !message.trim() || message.length > 6000) {
+          return reply(res, 400, { error: 'Balasan wajib diisi, maksimal 6000 karakter.' });
+        }
+        const current = read(job.id);
+        if (!owns(current)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+        Object.assign(current, { status: 'responded', message: message.trim() });
+        delete current.lease;
+        delete current.expires;
+        write(current);
+        return reply(res, 200, publicJob(current));
+      }
       if (route[2] === 'question') {
         const body = await readBody(req, 8192);
         let question;
@@ -173,7 +216,9 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
             !apk.includes(Buffer.from('AndroidManifest.xml')) || !apk.includes(Buffer.from('classes.dex'))) {
           return reply(res, 400, { error: 'Berkas tidak menyerupai APK Android.' });
         }
-        if (!owns(read(job.id))) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+        const current = read(job.id);
+        if (!owns(current)) return reply(res, 409, { error: 'Klaim tugas tidak aktif.' });
+        Object.assign(job, current);
         writeFileSync(apkPath(job.id) + '.tmp', apk, { mode: 0o600 });
         renameSync(apkPath(job.id) + '.tmp', apkPath(job.id));
         Object.assign(job, { status: 'ready', sha256: digest(apk).toString('hex'), size: apk.length });

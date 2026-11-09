@@ -43,6 +43,12 @@ Klaim berlaku sepuluh menit. Klaim kedaluwarsa bisa diambil ulang. Hasil dari kl
 
 ### Tanya pengguna dari tugas Muse
 
+Klaim juga membawa `context`, riwayat pesan sebelumnya dan ID hasil terdahulu. Gunakan untuk revisi di percakapan yang sama. Jika pengguna sedang berdiskusi atau menanyakan sesuatu, balas melalui `PUT /api/build/{id}/message` dengan JSON `{"message":"..."}`, token worker dan lease aktif. Batas balasan 6000 karakter, status akhirnya `responded`. Buat APK ketika permintaan membutuhkan pembuatan atau revisi aplikasi. Simpan sumber tiap tugas di direktori job agar revisi berikutnya dapat melanjutkannya. Sapaan singkat ditangani lokal oleh YAP dan ditandai sebagai balasan YAP.
+
+Untuk APK WebView, sediakan satu `assets/index.html` mandiri dengan CSS dan JavaScript inline. Gateway melayani HTML tersebut melalui `GET /api/build/{id}/preview` dengan autentikasi pengguna yang sama. YAP memuatnya di WebView terisolasi untuk preview dan menampilkan HTML-nya di tab Code. APK terdahulu juga bisa dipratinjau jika memiliki aset ini. APK native tanpa aset HTML tetap bisa diunduh.
+
+Tentukan nama aplikasi yang sesuai fungsi, tulis pada label Android serta judul HTML, dan sertakan ikon launcher yang relevan dalam resource APK. Gunakan ikon kompatibel minSdk dan ikon adaptive bila didukung toolchain. Periksa label dan referensi ikon dengan `aapt2 dump badging`. Sebelum mengunggah hasil, kirim `PUT /api/build/{id}/metadata` dengan JSON `{"appName":"Nama Aplikasi"}`, token worker dan lease aktif. Nama maksimal 80 karakter. YAP akan memakai nama ini untuk kartu hasil dan nama file unduhan.
+
 Jika keputusan penting belum jelas, kirim `PUT /api/build/{id}/question` memakai kredensial worker yang sama dengan klaim, header `X-YAP-Lease`, dan JSON `{"question":"..." }` (maksimal 600 karakter). Setelah respons sukses, tugas menjadi `awaiting_answer` dan lease berakhir. Selesaikan sesi untuk tugas itu tanpa polling atau mengirim hasil. YAP menampilkan pertanyaan di Chat Studio dan tombol **Kirim** mengirim jawaban melalui `POST /api/build/{id}/answer`. Gateway mengantrekan kembali ID yang sama dan klaim berikutnya membawa lease baru serta `clarifications` berisi pertanyaan dan jawaban. Terapkan seluruh riwayat saat melanjutkan. Pengguna bisa membuka kembali YAP untuk melihat dan menjawab pertanyaan yang masih menunggu.
 
 ## Uji demo

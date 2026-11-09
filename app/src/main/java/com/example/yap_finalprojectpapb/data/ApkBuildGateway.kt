@@ -7,16 +7,22 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
+import kotlinx.serialization.Serializable
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 import java.security.MessageDigest
 
+@Serializable
 data class BuildClarification(val id: String, val question: String, val answer: String?)
 
+@Serializable
 data class ApkBuild(
     val id: String, val status: String, val sha256: String?, val size: Long?,
-    val clarification: BuildClarification? = null
+    val clarification: BuildClarification? = null,
+    val message: String? = null,
+    val clarifications: List<BuildClarification> = emptyList(),
+    val appName: String? = null
 )
 
 class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
@@ -49,8 +55,8 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
         }
     }
 
-    suspend fun submit(settings: GatewaySettings, id: String, prompt: String): ApkBuild =
-        request(settings, "/api/build", buildJsonObject { put("id", id); put("prompt", prompt) }.toString())
+    suspend fun submit(settings: GatewaySettings, id: String, prompt: String, context: String = ""): ApkBuild =
+        request(settings, "/api/build", buildJsonObject { put("id", id); put("prompt", prompt); put("context", context) }.toString())
 
     suspend fun status(settings: GatewaySettings, id: String): ApkBuild = request(settings, "/api/build/$id")
 
@@ -73,7 +79,7 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
                 }
                 checkResponse(connection)
                 val raw = connection.inputStream.use { input ->
-                    val buffer = ByteArray(16_385)
+                    val buffer = ByteArray(131_073)
                     var size = 0
                     while (size < buffer.size) {
                         val read = input.read(buffer, size, buffer.size - size)
@@ -88,12 +94,39 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
                     BuildClarification(it.getValue("id").jsonPrimitive.content,
                         it.getValue("question").jsonPrimitive.content, it["answer"]?.jsonPrimitive?.contentOrNull)
                 }
+                val clarifications = (json["clarifications"] as? JsonArray)?.map {
+                    val entry = it.jsonObject
+                    BuildClarification(entry.getValue("id").jsonPrimitive.content,
+                        entry.getValue("question").jsonPrimitive.content, entry["answer"]?.jsonPrimitive?.contentOrNull)
+                }.orEmpty()
                 ApkBuild(json.getValue("id").jsonPrimitive.content, json.getValue("status").jsonPrimitive.content,
-                    json["sha256"]?.jsonPrimitive?.contentOrNull, json["size"]?.jsonPrimitive?.longOrNull, clarification)
+                    json["sha256"]?.jsonPrimitive?.contentOrNull, json["size"]?.jsonPrimitive?.longOrNull, clarification,
+                    json["message"]?.jsonPrimitive?.contentOrNull, clarifications,
+                    json["appName"]?.jsonPrimitive?.contentOrNull)
             } finally {
                 connection.disconnect()
             }
         }
+
+    suspend fun preview(settings: GatewaySettings, id: String): String? = withContext(Dispatchers.IO) {
+        val connection = connect(settings, "/api/build/$id/preview", "GET")
+        try {
+            if (connection.responseCode == 404) return@withContext null
+            checkResponse(connection)
+            val output = java.io.ByteArrayOutputStream()
+            connection.inputStream.use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    check(output.size() + count <= 13_000_000) { "Pratinjau terlalu besar." }
+                    output.write(buffer, 0, count)
+                }
+            }
+            Json.parseToJsonElement(output.toString("UTF-8")).jsonObject.getValue("html").jsonPrimitive.content
+        } finally { connection.disconnect() }
+    }
 
     suspend fun download(context: Context, settings: GatewaySettings, job: ApkBuild, destination: Uri) =
         withContext(Dispatchers.IO) {
