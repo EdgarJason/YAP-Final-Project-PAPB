@@ -56,19 +56,24 @@ fun ChatStudioScreen(
     onProfileClick: () -> Unit = {},
     onRecentSelect: (String) -> Unit = {}
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
-    var input by rememberSaveable { mutableStateOf("") }
     val generation by studioViewModel.state.collectAsState()
+    var tab by rememberSaveable(generation.conversationId) { mutableIntStateOf(0) }
+    var input by rememberSaveable(generation.conversationId) { mutableStateOf("") }
+    val previewHtml = generation.previewHtml
     val submitted = generation.prompt
+    var downloadTurnId by rememberSaveable { mutableStateOf<String?>(null) }
     val saveApk = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
-    ) { destination -> destination?.let(studioViewModel::saveApk) }
+    ) { destination -> destination?.let { studioViewModel.saveApk(it, downloadTurnId) } }
     var confirmNew by remember { mutableStateOf(false) }
 
     // Actual provider request state is owned by the ViewModel.
     var selectedFile by rememberSaveable { mutableStateOf("index.html") }
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     val chatScroll = rememberScrollState()
+    LaunchedEffect(generation.turns.size, generation.apk?.status, generation.apk?.clarification?.id, chatScroll.maxValue) {
+        chatScroll.animateScrollTo(chatScroll.maxValue)
+    }
     val awaitingAnswer = generation.apk?.status == "awaiting_answer"
     val inputLimit = if (awaitingAnswer) 1200 else 6000
     LaunchedEffect(generation.apk?.clarification?.answer) {
@@ -96,8 +101,7 @@ fun ChatStudioScreen(
         confirmNew = false
     }
 
-    val defaultHtml = """<!DOCTYPE html><html lang="id"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family:sans-serif;padding:24px;color:#042e59"><h2>Pratinjau aplikasi</h2><p>Unduh dan pasang APK dari tab Chat untuk mencoba aplikasi di Android.</p></body></html>"""
-    val currentCode = "<!-- Kode sumber tidak disertakan dalam hasil APK. -->"
+    val currentCode = generation.previewHtml ?: "<!-- Kode tersedia setelah pratinjau berhasil dimuat. -->"
 
     BackHandler(drawer.isOpen || fullscreen || (tab == 1 && previewState.canGoBack)) {
         when {
@@ -137,7 +141,7 @@ fun ChatStudioScreen(
                     modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = {
                         scope.launch { drawer.close() }
-                        if (input.isNotBlank() || submitted.isNotBlank()) confirmNew = true else startNew()
+                        if (input.isNotBlank()) confirmNew = true else startNew()
                     }
                 )
                 NavigationDrawerItem(
@@ -201,7 +205,7 @@ fun ChatStudioScreen(
                             IconButton(modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), onClick = onApiSettingsClick) {
                                 Icon(Icons.Outlined.Tune, "Pengaturan AI", tint = BlueDarker)
                             }
-                            IconButton(modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), onClick = { if (input.isNotBlank() || submitted.isNotBlank()) confirmNew = true else startNew() }) {
+                            IconButton(modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp), onClick = { if (input.isNotBlank()) confirmNew = true else startNew() }) {
                                 Icon(Icons.Outlined.Add, "Chat Baru", tint = BlueNormal)
                             }
                         }
@@ -284,26 +288,40 @@ fun ChatStudioScreen(
                                         }
                                     }
                                 } else {
-                                    // Keadaan Saat Ide Disubmit (Pipeline Berjalan)
-                                    Surface(
-                                        color = BlueLight,
-                                        shape = RoundedCornerShape(16.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(Modifier.padding(16.dp)) {
-                                            Text("Ide Kamu:", style = type.labelMedium, color = BlueNormal, fontWeight = FontWeight.Bold)
-                                            Spacer(Modifier.height(4.dp))
-                                            Text(submitted, style = type.bodyLarge, color = BlueDarker, fontWeight = FontWeight.Medium)
+                                    generation.turns.forEach { turn ->
+                                        key(turn.id) {
+                                            Surface(
+                                                color = BlueLight,
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Column(Modifier.padding(16.dp)) {
+                                                    Text("Kamu", style = type.labelMedium, color = BlueNormal, fontWeight = FontWeight.Bold)
+                                                    Spacer(Modifier.height(4.dp))
+                                                    Text(turn.prompt, style = type.bodyLarge, color = BlueDarker, fontWeight = FontWeight.Medium)
+                                                }
+                                            }
+
+                                            Spacer(Modifier.height(16.dp))
+
+                                            GenerationStatus(
+                                                state = if (turn.id == generation.activeTurnId) generation else StudioUiState(
+                                                    prompt = turn.prompt, apk = turn.apk, reply = turn.reply, error = turn.error,
+                                                    downloading = generation.downloading && generation.downloadingTurnId == turn.id,
+                                                    downloadMessage = generation.downloadMessage.takeIf { generation.downloadingTurnId == turn.id }
+                                                ),
+                                                onRetry = { studioViewModel.retry(turn.id) },
+                                                onDownload = {
+                                                    downloadTurnId = turn.id
+                                                    val name = turn.apk?.appName ?: "Aplikasi-${turn.id.take(8)}"
+                                                    val filename = name.replace(Regex("[\\p{Cntrl}/\\\\:*?\"<>|]"), "").trim().take(80)
+                                                    saveApk.launch("${filename.ifBlank { "Aplikasi" }}.apk")
+                                                },
+                                                onPreview = { studioViewModel.loadPreview(turn.id); tab = 1 }
+                                            )
+                                            Spacer(Modifier.height(20.dp))
                                         }
                                     }
-
-                                    Spacer(Modifier.height(16.dp))
-
-                                    GenerationStatus(
-                                        state = generation,
-                                        onRetry = studioViewModel::retry,
-                                        onDownload = { saveApk.launch("yap-app.apk") }
-                                    )
                                 }
                             }
                         }
@@ -321,7 +339,7 @@ fun ChatStudioScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
-                                            "Pratinjau Interaktif WebView",
+                                            "Pratinjau aplikasi",
                                             Modifier.weight(1f),
                                             style = type.titleSmall,
                                             fontWeight = FontWeight.Bold,
@@ -341,11 +359,21 @@ fun ChatStudioScreen(
                                         .border(1.dp, Neutral300, RoundedCornerShape(16.dp))
                                         .background(Color.White)
                                 ) {
-                                    StudioWebPreview(
-                                        html = defaultHtml,
+                                    if (previewHtml != null) StudioWebPreview(
+                                        html = previewHtml,
                                         state = previewState,
+                                        documentId = generation.previewJobId ?: "default",
                                         modifier = Modifier.fillMaxSize()
                                     )
+                                    else Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        if (generation.previewLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                                        Text(generation.previewMessage ?: if (generation.previewLoading) "Memuat pratinjau…"
+                                            else "Pratinjau hasil aplikasi akan muncul di sini setelah Muse selesai membuatnya.",
+                                            style = type.bodyMedium, color = BlueDarker)
+                                        if (generation.turns.any { it.apk?.status == "ready" }) {
+                                            TextButton(onClick = { studioViewModel.loadPreview() }) { Text("Muat ulang pratinjau") }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -472,8 +500,8 @@ fun ChatStudioScreen(
         AlertDialog(
             onDismissRequest = { confirmNew = false },
             title = { Text("Mulai Obrolan Baru?", fontWeight = FontWeight.Bold) },
-            text = { Text("Ide dan aplikasi yang sedang dibuat saat ini akan dibersihkan dari layar studio.") },
-            confirmButton = { TextButton(onClick = startNew, modifier = Modifier.heightIn(min = 48.dp)) { Text("Mulai Baru", color = Color(0xFFEF4444)) } },
+            text = { Text("Draf yang belum dikirim akan dibersihkan. Percakapan yang sudah dikirim tetap tersimpan di Riwayat.") },
+            confirmButton = { TextButton(onClick = startNew, modifier = Modifier.heightIn(min = 48.dp)) { Text("Mulai Baru", color = BlueNormal) } },
             dismissButton = { TextButton(onClick = { confirmNew = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Tetap Lanjut") } }
         )
     }
@@ -483,7 +511,8 @@ fun ChatStudioScreen(
 private fun GenerationStatus(
     state: StudioUiState,
     onRetry: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onPreview: () -> Unit
 ) {
     Surface(color = NeutralWhite, shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, Neutral200), modifier = Modifier.fillMaxWidth()) {
@@ -492,15 +521,20 @@ private fun GenerationStatus(
                 YapMascot(mood = if (state.loading) MascotMood.Thinking else MascotMood.Happy,
                     size = 56.dp, showSpeechBubble = false)
                 Text(when {
-                    state.error != null -> "Build APK belum selesai"
+                    state.reply != null -> "YAP"
+                    state.error != null -> "Tugas belum selesai"
+                    state.apk?.status == "responded" -> "Muse"
                     state.apk?.status == "ready" -> "APK siap diunduh"
                     state.apk?.status == "awaiting_answer" -> "Muse menunggu jawabanmu"
-                    state.apk?.status == "building" -> "Muse sedang membuat APK…"
+                    state.apk?.status == "building" -> "Muse sedang mengerjakan permintaanmu…"
                     else -> "Menunggu Muse mengambil tugas…"
                 }, modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.titleSmall, color = BlueDarker)
             }
-            state.apk?.clarification?.let { clarification ->
+            state.reply?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = BlueDarker) }
+            state.apk?.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = BlueDarker) }
+            val questions = state.apk?.clarifications.orEmpty().ifEmpty { listOfNotNull(state.apk?.clarification) }
+            questions.forEach { clarification ->
                 Text("Pertanyaan Muse", style = MaterialTheme.typography.labelMedium, color = BlueDarker)
                 Text(clarification.question, style = MaterialTheme.typography.bodyMedium, color = BlueDarker)
                 clarification.answer?.let {
@@ -511,7 +545,8 @@ private fun GenerationStatus(
             if (state.loading) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(if (state.apk?.status == "awaiting_answer") "Mengirim jawaban…"
-                else "Proses dapat memerlukan beberapa menit.", style = MaterialTheme.typography.bodySmall)
+                else if (state.apk?.status == "queued") "Menunggu giliran. Muse memeriksa tugas sekitar setiap 30 detik."
+                else "Waktu pengerjaan mengikuti kompleksitas permintaan.", style = MaterialTheme.typography.bodySmall)
             }
             state.error?.let {
                 Text(it, color = MaterialTheme.colorScheme.error,
@@ -519,6 +554,8 @@ private fun GenerationStatus(
                 TextButton(onClick = onRetry, modifier = Modifier.heightIn(min = 48.dp)) { Text("Coba lagi") }
             }
             if (state.apk?.status == "ready") {
+                state.apk.appName?.let { Text(it, style = MaterialTheme.typography.titleMedium, color = BlueDarker) }
+                TextButton(onClick = onPreview) { Text("Coba di Preview") }
                 Button(onClick = onDownload, enabled = !state.downloading, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(if (state.downloading) "Mengunduh APK…" else "Unduh APK")
                 }

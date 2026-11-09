@@ -15,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalInspectionMode
 import com.example.yap_finalprojectpapb.ui.components.AppUpdateDialog
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.yap_finalprojectpapb.ui.viewmodels.StudioViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
@@ -72,6 +74,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent() {
     val navController = rememberNavController()
+    val studioModel: StudioViewModel = viewModel()
+    val studioState by studioModel.state.collectAsState()
     var showUpdates by rememberSaveable { mutableStateOf(false) }
     if (!LocalInspectionMode.current) {
         AppUpdateDialog(showUpdates, onShow = { showUpdates = true }, onDismiss = { showUpdates = false })
@@ -174,6 +178,7 @@ fun MainAppContent() {
                 }
                 composable(Routes.CHAT_STUDIO) {
                     ChatStudioScreen(
+                        studioViewModel = studioModel,
                         onMenuClick = { navController.navigate(Routes.CHAT_HISTORY) },
                         onApiSettingsClick = { navController.navigate(Routes.API_SETTINGS) },
                         onUpdateClick = { showUpdates = true },
@@ -184,9 +189,16 @@ fun MainAppContent() {
                 }
                 composable(Routes.CHAT_HISTORY) {
                     ChatHistoryScreen(
+                        conversations = studioState.conversations,
                         onBackClick = { navController.popBackStack() },
-                        onChatSelect = { navController.navigate(Routes.CHAT_STUDIO) },
-                        onNewChatClick = { navController.navigate(Routes.CHAT_STUDIO) }
+                        onChatSelect = { item ->
+                            studioModel.openConversation(item.id)
+                            navController.popBackStack(Routes.CHAT_STUDIO, false)
+                        },
+                        onNewChatClick = {
+                            studioModel.reset()
+                            navController.popBackStack(Routes.CHAT_STUDIO, false)
+                        }
                     )
                 }
                 composable(Routes.API_SETTINGS) {

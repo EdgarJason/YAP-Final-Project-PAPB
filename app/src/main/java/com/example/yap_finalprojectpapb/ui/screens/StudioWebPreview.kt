@@ -3,6 +3,8 @@ package com.example.yap_finalprojectpapb.ui.screens
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Parcel
+import java.security.MessageDigest
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -28,7 +30,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 internal class StudioPreviewState {
     var webView: WebView? = null
     var loadedHtml: String? = null
+    var loadedDocumentId: String? = null
     var savedHistory: Bundle? = null
+    var savedHtmlHash: String? = null
     var canGoBack by mutableStateOf(false)
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
@@ -45,25 +49,36 @@ internal class StudioPreviewState {
         }
         webView = null
         loadedHtml = null
+        loadedDocumentId = null
         savedHistory = null
+        savedHtmlHash = null
         canGoBack = false
         loading = false
         error = null
     }
 
     companion object {
+        fun htmlHash(html: String): String = MessageDigest.getInstance("SHA-256")
+            .digest(html.toByteArray()).joinToString("") { "%02x".format(it.toInt() and 255) }
+
         val StateSaver = Saver<StudioPreviewState, Bundle>(
             save = { state ->
                 Bundle().apply {
-                    putString("html", state.loadedHtml)
+                    putString("htmlHash", state.loadedHtml?.let { htmlHash(it) })
+                    putString("documentId", state.loadedDocumentId)
                     val history = state.webView?.let { view -> Bundle().also { view.saveState(it) } }
                         ?: state.savedHistory
-                    putBundle("history", history)
+                    val parcel = Parcel.obtain()
+                    try {
+                        parcel.writeBundle(history)
+                        if (parcel.dataSize() <= 262_144) putBundle("history", history)
+                    } finally { parcel.recycle() }
                 }
             },
             restore = { bundle ->
                 StudioPreviewState().apply {
-                    loadedHtml = bundle.getString("html")
+                    savedHtmlHash = bundle.getString("htmlHash")
+                    loadedDocumentId = bundle.getString("documentId")
                     savedHistory = bundle.getBundle("history")
                 }
             }
@@ -82,7 +97,7 @@ internal fun rememberStudioPreviewState(): StudioPreviewState {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier: Modifier = Modifier) {
+internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier: Modifier = Modifier, documentId: String = "default") {
     Column(modifier) {
         if (state.loading) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -149,8 +164,11 @@ internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier:
                                 }
                             }
                         }
-                        val restored = state.loadedHtml == html && state.savedHistory?.let { restoreState(it) } != null
+                        val sameHtml = state.loadedHtml == html || state.savedHtmlHash == StudioPreviewState.htmlHash(html)
+                        val restored = sameHtml && state.loadedDocumentId == documentId &&
+                            state.savedHistory?.let { restoreState(it) } != null
                         state.savedHistory = null
+                        state.savedHtmlHash = null
                         if (!restored) state.loadedHtml = null
                     }.also { state.webView = it }
                     (browser.parent as? ViewGroup)?.removeView(browser)
@@ -160,10 +178,12 @@ internal fun StudioWebPreview(html: String, state: StudioPreviewState, modifier:
                 }
             },
             update = {
-                if (state.loadedHtml != html) {
+                if (state.loadedHtml != html || state.loadedDocumentId != documentId) {
                     state.loadedHtml = html
+                    state.loadedDocumentId = documentId
                     state.error = null
-                    state.webView?.loadDataWithBaseURL("https://yap.local/", html, "text/html", "UTF-8", "https://yap.local/")
+                    val origin = "https://${documentId.filter { it.isLetterOrDigit() }.ifEmpty { "default" }}.yap.local/"
+                    state.webView?.loadDataWithBaseURL(origin, html, "text/html", "UTF-8", origin)
                 }
             },
             onRelease = { host ->
