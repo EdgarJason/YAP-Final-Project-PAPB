@@ -51,6 +51,7 @@ fun ChatStudioScreen(
     studioViewModel: StudioViewModel = viewModel(),
     onMenuClick: () -> Unit = {},
     onApiSettingsClick: () -> Unit = {},
+    onUpdateClick: () -> Unit = {},
     onNewChatClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onRecentSelect: (String) -> Unit = {}
@@ -154,6 +155,13 @@ fun ChatStudioScreen(
                     onClick = { scope.launch { drawer.close() }; onApiSettingsClick() }
                 )
                 Spacer(Modifier.weight(1f))
+                NavigationDrawerItem(
+                    label = { Text("Pembaruan YAP", fontWeight = FontWeight.Medium) },
+                    selected = false,
+                    icon = { Icon(Icons.Outlined.SystemUpdate, null, tint = BlueNormal) },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    onClick = { scope.launch { drawer.close() }; onUpdateClick() }
+                )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = Neutral200)
                 NavigationDrawerItem(
                     label = { Text("Profil Akun", fontWeight = FontWeight.Medium) },
