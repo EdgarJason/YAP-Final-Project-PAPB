@@ -56,7 +56,12 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
     }
 
     suspend fun submit(settings: GatewaySettings, id: String, prompt: String, context: String = ""): ApkBuild =
-        request(settings, "/api/build", buildJsonObject { put("id", id); put("prompt", prompt); put("context", context) }.toString())
+        request(settings, "/api/build", buildJsonObject {
+            put("id", id)
+            put("prompt", prompt)
+            put("context", context)
+            put("responseMode", "chat")
+        }.toString())
 
     suspend fun status(settings: GatewaySettings, id: String): ApkBuild = request(settings, "/api/build/$id")
 

@@ -83,7 +83,8 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       const body = await readBody(req, 131_072);
       let data;
       try { data = body && JSON.parse(body.toString()); } catch {}
-      const { id, prompt, context = '' } = data || {};
+      const { id, prompt, context = '', responseMode = 'apk' } = data || {};
+      if (!['apk', 'chat'].includes(responseMode)) return reply(res, 400, { error: 'Mode respons tidak valid.' });
       if (typeof context !== 'string' || context.length > 12_000) {
         return reply(res, 400, { error: 'Konteks percakapan terlalu panjang.' });
       }
@@ -99,7 +100,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
         if (existing.prompt !== prompt.trim()) return reply(res, 409, { error: 'ID sudah dipakai.' });
         return reply(res, 200, publicJob(existing));
       }
-      const job = { id, prompt: prompt.trim(), context, status: 'queued', created: now(), ...(owner && { owner }) };
+      const job = { id, prompt: prompt.trim(), context, responseMode, status: 'queued', created: now(), ...(owner && { owner }) };
       write(job);
       return reply(res, 202, publicJob(job));
     }
@@ -108,7 +109,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
       if (!job) return res.writeHead(204).end();
       Object.assign(job, { status: 'building', lease: randomUUID(), expires: now() + leaseTime });
       write(job);
-      return reply(res, 200, { id: job.id, prompt: job.prompt, context: job.context || '', lease: job.lease, clarifications: job.clarifications || [] });
+      return reply(res, 200, { id: job.id, prompt: job.prompt, context: job.context || '', responseMode: job.responseMode || 'apk', lease: job.lease, clarifications: job.clarifications || [] });
     }
     const route = /^\/api\/build\/([\da-f-]{36})(?:\/(apk|result|fail|question|answer|message|preview|metadata))?$/.exec(url);
     const job = route && read(route[1]);
@@ -173,6 +174,7 @@ export function createBuildHandler({ env = process.env, directory = env.YAP_BUIL
         return reply(res, 200, publicJob(current));
       }
       if (route[2] === 'message') {
+        if (job.responseMode !== 'chat') return reply(res, 409, { error: 'Klien APK lama membutuhkan hasil APK atau klarifikasi.' });
         const body = await readBody(req, 40_960);
         let message;
         try { message = body && JSON.parse(body.toString()).message; } catch {}

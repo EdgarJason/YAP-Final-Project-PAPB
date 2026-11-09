@@ -24,7 +24,7 @@ test('chat replies finish without an APK and preview is private to the submittin
   });
   try {
     const chatId = randomUUID();
-    await call('', user, 'POST', { id: chatId, prompt: 'What can you build?', context: 'Earlier discussion' });
+    await call('', user, 'POST', { id: chatId, prompt: 'What can you build?', context: 'Earlier discussion', responseMode: 'chat' });
     const chat = await (await call('/claim', worker, 'POST')).json();
     assert.equal(chat.context, 'Earlier discussion');
     assert.equal((await call('/' + chatId + '/message', user, 'PUT', { message: 'Hello' }, chat.lease)).status, 401);
