@@ -6,9 +6,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
 import kotlinx.serialization.Serializable
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.security.MessageDigest
@@ -46,10 +48,12 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
 
     private fun checkResponse(connection: HttpURLConnection) {
         val status = connection.responseCode
+        if (status in listOf(429, 502, 503, 504)) {
+            throw IOException("Layanan YAP sementara tidak tersedia.")
+        }
         check(status in 200..299) {
             when (status) {
                 401, 403 -> "Token akses YAP tidak valid."
-                503 -> "Antrean APK belum dikonfigurasi di gateway."
                 else -> "Gateway APK mengembalikan HTTP $status."
             }
         }
@@ -72,6 +76,21 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
         }.toString())
 
     private suspend fun request(settings: GatewaySettings, path: String, body: String? = null): ApkBuild =
+        retryNetwork { requestOnce(settings, path, body) }
+
+    private suspend fun <T> retryNetwork(operation: suspend () -> T): T {
+        repeat(3) { attempt ->
+            try { return operation() }
+            catch (error: IOException) {
+                currentCoroutineContext().ensureActive()
+                if (attempt == 2) throw error
+                delay((attempt + 1) * 1000L)
+            }
+        }
+        error("Percobaan koneksi selesai tanpa hasil.")
+    }
+
+    private suspend fun requestOnce(settings: GatewaySettings, path: String, body: String?): ApkBuild =
         withContext(Dispatchers.IO) {
             val connection = connect(settings, path, if (body == null) "GET" else "POST")
             try {
@@ -113,7 +132,10 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
             }
         }
 
-    suspend fun preview(settings: GatewaySettings, id: String): String? = withContext(Dispatchers.IO) {
+    suspend fun preview(settings: GatewaySettings, id: String): String? =
+        retryNetwork { previewOnce(settings, id) }
+
+    private suspend fun previewOnce(settings: GatewaySettings, id: String): String? = withContext(Dispatchers.IO) {
         val connection = connect(settings, "/api/build/$id/preview", "GET")
         try {
             if (connection.responseCode == 404) return@withContext null

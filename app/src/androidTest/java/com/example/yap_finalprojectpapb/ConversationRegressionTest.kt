@@ -13,6 +13,7 @@ import java.net.ServerSocket
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
+import kotlinx.coroutines.runBlocking
 
 class ConversationRegressionTest {
     private class IsolatedApplication(private val context: Context) : Application() {
@@ -69,6 +70,10 @@ class ConversationRegressionTest {
             assertEquals(previous.prompt, turn.prompt)
             assertEquals(previous.gatewayUrl, turn.gatewayUrl)
             store.save(migrated)
+            val stored = app.getSharedPreferences("yap_conversations", 0).getString("conversations", null)
+            val conversation = JSONObject(checkNotNull(stored)).getJSONArray("conversations").getJSONObject(0)
+            assertEquals(migrated.conversations.single().updated, conversation.getLong("updated"))
+            assertEquals(turn.created, conversation.getJSONArray("turns").getJSONObject(0).getLong("created"))
             assertEquals(migrated, StudioConversationStore(app).load())
         } finally { app.cleanup() }
     }
@@ -129,6 +134,42 @@ class ConversationRegressionTest {
             val completionDeadline = System.currentTimeMillis() + 10_000
             while (model.state.value.loading && System.currentTimeMillis() < completionDeadline) Thread.sleep(20)
             assertEquals("responded", model.state.value.apk?.status)
+        } finally {
+            server.close()
+            executor.shutdownNow()
+            app.cleanup()
+        }
+    }
+
+    @Test fun temporaryGatewayFailureRetriesTheSameJob() = runBlocking {
+        val app = IsolatedApplication(InstrumentationRegistry.getInstrumentation().targetContext)
+        val server = ServerSocket(0).apply { soTimeout = 10_000 }
+        val executor = Executors.newSingleThreadExecutor()
+        val id = UUID.randomUUID().toString()
+        val requests = executor.submit<List<String>> {
+            List(2) { attempt ->
+                server.accept().use { socket ->
+                    val input = socket.getInputStream().bufferedReader()
+                    val route = input.readLine()
+                    while (!input.readLine().isNullOrEmpty()) { }
+                    val body = if (attempt == 0) "{}" else
+                        JSONObject().put("id", id).put("status", "queued").toString()
+                    val code = if (attempt == 0) "503 Service Unavailable" else "200 OK"
+                    socket.getOutputStream().apply {
+                        write("HTTP/1.1 $code\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body".toByteArray())
+                        flush()
+                    }
+                    route
+                }
+            }
+        }
+        try {
+            val store = GatewaySettingsStore(app)
+            val settings = GatewaySettings("http://127.0.0.1:${server.localPort}", "fixture".repeat(8))
+            store.save(settings)
+            assertEquals(id, ApkBuildGateway(store).status(settings, id).id)
+            val captured = requests.get(5, TimeUnit.SECONDS)
+            assertEquals(captured[0], captured[1])
         } finally {
             server.close()
             executor.shutdownNow()

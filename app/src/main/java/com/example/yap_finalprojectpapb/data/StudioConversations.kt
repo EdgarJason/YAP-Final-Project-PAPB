@@ -30,7 +30,10 @@ data class SavedConversations(val activeId: String, val conversations: List<Stud
 class StudioConversationStore(context: Context) {
     private val preferences = context.getSharedPreferences("yap_conversations", Context.MODE_PRIVATE)
     private val legacy = GatewaySettingsStore(context)
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     fun load(): SavedConversations {
         preferences.getString("conversations", null)?.let { return json.decodeFromString(it) }
