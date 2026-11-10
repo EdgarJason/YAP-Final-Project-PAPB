@@ -103,11 +103,21 @@ fun ChatStudioScreen(
 
     val currentCode = generation.previewHtml ?: "<!-- Kode tersedia setelah pratinjau berhasil dimuat. -->"
 
-    BackHandler(drawer.isOpen || fullscreen || (tab == 1 && previewState.canGoBack)) {
+    var lastBackPressTime by remember { mutableLongStateOf(0L) }
+    BackHandler {
         when {
             drawer.isOpen -> scope.launch { drawer.close() }
             tab == 1 && previewState.canGoBack -> previewState.goBack()
             fullscreen -> fullscreen = false
+            else -> {
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastBackPressTime < 2000L) {
+                    (context as? android.app.Activity)?.finish()
+                } else {
+                    lastBackPressTime = currentTime
+                    Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
@@ -134,10 +144,20 @@ fun ChatStudioScreen(
                 }
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = Neutral200)
                 Spacer(Modifier.height(8.dp))
+                val drawerColors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedTextColor = BlueDarker,
+                    unselectedIconColor = BlueNormal,
+                    selectedContainerColor = BlueLight,
+                    selectedTextColor = BlueDarker,
+                    selectedIconColor = BlueNormal
+                )
+
                 NavigationDrawerItem(
-                    label = { Text("Obrolan Baru", fontWeight = FontWeight.Medium) },
+                    label = { Text("Obrolan Baru", fontFamily = PlusJakartaSansFamily, fontWeight = FontWeight.SemiBold, color = BlueDarker) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.Add, null, tint = BlueNormal) },
+                    colors = drawerColors,
                     modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = {
                         scope.launch { drawer.close() }
@@ -145,32 +165,36 @@ fun ChatStudioScreen(
                     }
                 )
                 NavigationDrawerItem(
-                    label = { Text("Riwayat Percakapan", fontWeight = FontWeight.Medium) },
+                    label = { Text("Riwayat Percakapan", fontFamily = PlusJakartaSansFamily, fontWeight = FontWeight.SemiBold, color = BlueDarker) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.History, null, tint = BlueNormal) },
+                    colors = drawerColors,
                     modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = { scope.launch { drawer.close() }; onMenuClick() }
                 )
                 NavigationDrawerItem(
-                    label = { Text("Pengaturan AI", fontWeight = FontWeight.Medium) },
+                    label = { Text("Pengaturan AI", fontFamily = PlusJakartaSansFamily, fontWeight = FontWeight.SemiBold, color = BlueDarker) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.Tune, null, tint = BlueNormal) },
+                    colors = drawerColors,
                     modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = { scope.launch { drawer.close() }; onApiSettingsClick() }
                 )
                 Spacer(Modifier.weight(1f))
                 NavigationDrawerItem(
-                    label = { Text("Pembaruan YAP", fontWeight = FontWeight.Medium) },
+                    label = { Text("Pembaruan YAP", fontFamily = PlusJakartaSansFamily, fontWeight = FontWeight.SemiBold, color = BlueDarker) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.SystemUpdate, null, tint = BlueNormal) },
+                    colors = drawerColors,
                     modifier = Modifier.padding(horizontal = 12.dp),
                     onClick = { scope.launch { drawer.close() }; onUpdateClick() }
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp), color = Neutral200)
                 NavigationDrawerItem(
-                    label = { Text("Profil Akun", fontWeight = FontWeight.Medium) },
+                    label = { Text("Profil Akun", fontFamily = PlusJakartaSansFamily, fontWeight = FontWeight.SemiBold, color = BlueDarker) },
                     selected = false,
                     icon = { Icon(Icons.Outlined.PersonOutline, null, tint = BlueNormal) },
+                    colors = drawerColors,
                     modifier = Modifier.padding(12.dp),
                     onClick = { scope.launch { drawer.close() }; onProfileClick() }
                 )
@@ -213,7 +237,11 @@ fun ChatStudioScreen(
 
                     // Tab Switcher (Chat | Preview | Code)
                     Row(
-                        Modifier.fillMaxWidth().background(NeutralWhite).horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .background(NeutralWhite)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf("Chat", "Preview", "Code").forEachIndexed { index, label ->
@@ -221,7 +249,13 @@ fun ChatStudioScreen(
                                 modifier = Modifier.heightIn(min = 48.dp),
                                 selected = tab == index,
                                 onClick = { tab = index; focus.clearFocus() },
-                                label = { Text(label, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Medium) },
+                                label = {
+                                    Text(
+                                        label,
+                                        fontFamily = PlusJakartaSansFamily,
+                                        fontWeight = if (tab == index) FontWeight.Bold else FontWeight.SemiBold
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(
                                         listOf(Icons.Outlined.ChatBubbleOutline, Icons.Outlined.Web, Icons.Outlined.Code)[index],
@@ -229,9 +263,21 @@ fun ChatStudioScreen(
                                         Modifier.size(18.dp)
                                     )
                                 },
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = tab == index,
+                                    borderColor = Neutral300,
+                                    selectedBorderColor = BlueNormal,
+                                    borderWidth = 1.dp,
+                                    selectedBorderWidth = 1.dp
+                                ),
                                 colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = NeutralWhite,
                                     selectedContainerColor = BlueLight,
-                                    selectedLabelColor = BlueNormal
+                                    labelColor = Neutral800,
+                                    selectedLabelColor = BlueNormal,
+                                    iconColor = Neutral600,
+                                    selectedLeadingIconColor = BlueNormal
                                 )
                             )
                         }
@@ -457,9 +503,17 @@ fun ChatStudioScreen(
                                 value = input,
                                 onValueChange = { input = it },
                                 modifier = Modifier.fillMaxWidth().focusRequester(requester),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontFamily = PlusJakartaSansFamily,
+                                    fontSize = 15.sp,
+                                    color = Neutral900
+                                ),
                                 placeholder = {
-                                    Text(if (awaitingAnswer) "Jawab pertanyaan Muse..." else "Ketik ide aplikasi Android...",
-                                        fontSize = 14.sp)
+                                    Text(
+                                        if (awaitingAnswer) "Jawab pertanyaan Muse..." else "Ketik ide aplikasi Android...",
+                                        fontSize = 14.sp,
+                                        color = Neutral500
+                                    )
                                 },
                                 maxLines = 4,
                                 isError = input.length > inputLimit,
@@ -467,6 +521,15 @@ fun ChatStudioScreen(
                                     if (input.length > inputLimit) Text("Maksimal $inputLimit karakter.")
                                 },
                                 shape = RoundedCornerShape(14.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Neutral900,
+                                    unfocusedTextColor = Neutral900,
+                                    focusedBorderColor = BlueNormal,
+                                    unfocusedBorderColor = Neutral300,
+                                    focusedContainerColor = NeutralWhite,
+                                    unfocusedContainerColor = NeutralWhite,
+                                    cursorColor = BlueNormal
+                                ),
                                 trailingIcon = {
                                     IconButton(
                                         enabled = input.isNotBlank() && input.length <= inputLimit && !generation.loading && !generation.downloading,

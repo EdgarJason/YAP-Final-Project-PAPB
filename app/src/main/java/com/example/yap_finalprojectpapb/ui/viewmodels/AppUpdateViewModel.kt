@@ -4,7 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.yap_finalprojectpapb.data.AppUpdate
-import com.example.yap_finalprojectpapb.data.AppUpdates
+import com.example.yap_finalprojectpapb.data.repository.AppUpdateRepositoryImpl
+import com.example.yap_finalprojectpapb.domain.repository.AppUpdateRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,8 +19,15 @@ data class AppUpdateState(
     val percent: Int = 0, val message: String? = null
 )
 
-class AppUpdateViewModel(application: Application) : AndroidViewModel(application) {
-    private val updates = AppUpdates(application)
+class AppUpdateViewModel(
+    application: Application,
+    private val updateRepository: AppUpdateRepository
+) : AndroidViewModel(application) {
+
+    constructor(application: Application) : this(
+        application,
+        AppUpdateRepositoryImpl(application)
+    )
     private val mutableState = MutableStateFlow(AppUpdateState())
     val state = mutableState.asStateFlow()
 
@@ -30,7 +38,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             mutableState.update { it.copy(checking = true, message = null) }
             try {
-                val update = updates.check()
+                val update = updateRepository.checkForUpdate()
                 mutableState.update { it.copy(checking = false, update = update,
                     message = if (update == null) "YAP sudah versi terbaru." else null) }
             } catch (error: Exception) {
@@ -46,7 +54,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             mutableState.update { it.copy(downloading = true, message = null, percent = 0) }
             try {
-                val file = updates.download(update) { percent -> mutableState.update { it.copy(percent = percent) } }
+                val file = updateRepository.downloadUpdate(update) { percent -> mutableState.update { it.copy(percent = percent) } }
                 mutableState.update { it.copy(downloading = false, file = file) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error

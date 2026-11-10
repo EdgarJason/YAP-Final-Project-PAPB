@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Splash Screen Theme (Android 12+) -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/mascot_normal</item>
+        <item name="postSplashScreenTheme">@style/Theme.YAPFinalProjectPAPB</item>
+    </style>
 
-    <style name="Theme.YAPFinalProjectPAPB" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Main App Theme -->
+    <style name="Theme.YAPFinalProjectPAPB" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 </resources>

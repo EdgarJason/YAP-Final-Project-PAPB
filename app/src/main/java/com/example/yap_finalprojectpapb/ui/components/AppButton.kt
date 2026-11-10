@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -70,6 +72,12 @@ fun AppButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val haptics = LocalHapticFeedback.current
+
+    val handleOnClick = {
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onClick()
+    }
 
     val cornerRadius = 16.dp
     val shape = RoundedCornerShape(cornerRadius)
@@ -90,7 +98,7 @@ fun AppButton(
             )
 
             Button(
-                onClick = onClick,
+                onClick = handleOnClick,
                 modifier = effectiveModifier,
                 enabled = enabled,
                 shape = shape,
@@ -138,7 +146,7 @@ fun AppButton(
             }
 
             OutlinedButton(
-                onClick = onClick,
+                onClick = handleOnClick,
                 modifier = effectiveModifier,
                 enabled = enabled,
                 shape = shape,

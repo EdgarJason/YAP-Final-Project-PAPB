@@ -55,7 +55,7 @@ fun AppTextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "Placeholder",
+    placeholder: String = "",
     label: String? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -187,7 +187,7 @@ fun AppTextFieldPreview() {
                 label = "Current Password",
                 value = "",
                 onValueChange = {},
-                placeholder = "Placeholder"
+                placeholder = "contoh@mail.com"
             )
         }
     }
