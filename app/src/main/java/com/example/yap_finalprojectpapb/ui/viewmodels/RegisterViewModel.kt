@@ -1,10 +1,15 @@
 package com.example.yap_finalprojectpapb.ui.viewmodels
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.yap_finalprojectpapb.data.repository.AuthRepositoryImpl
+import com.example.yap_finalprojectpapb.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
  * State penampung data formulir pendaftaran akun YAP.
@@ -25,11 +30,17 @@ data class RegisterUiState(
     val isPasswordVisible: Boolean = false,
     val isConfirmPasswordVisible: Boolean = false,
     val combinedFullName: String = "",
+    val isLoading: Boolean = false,
     val isSubmitSuccess: Boolean = false,
-    val submitMessage: String? = null
+    val submitMessage: String? = null,
+    val authError: String? = null
 )
 
-class RegisterViewModel : ViewModel() {
+class RegisterViewModel(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+
+    constructor() : this(AuthRepositoryImpl())
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
@@ -44,7 +55,8 @@ class RegisterViewModel : ViewModel() {
             current.copy(
                 firstName = newValue,
                 firstNameError = if (current.firstNameError != null) validateFirstName(newValue) else null,
-                isSubmitSuccess = false
+                isSubmitSuccess = false,
+                authError = null
             )
         }
     }
@@ -54,7 +66,8 @@ class RegisterViewModel : ViewModel() {
             current.copy(
                 lastName = newValue,
                 lastNameError = if (current.lastNameError != null) validateLastName(newValue) else null,
-                isSubmitSuccess = false
+                isSubmitSuccess = false,
+                authError = null
             )
         }
     }
@@ -64,7 +77,8 @@ class RegisterViewModel : ViewModel() {
             current.copy(
                 email = newValue,
                 emailError = if (current.emailError != null) validateEmail(newValue) else null,
-                isSubmitSuccess = false
+                isSubmitSuccess = false,
+                authError = null
             )
         }
     }
@@ -79,7 +93,8 @@ class RegisterViewModel : ViewModel() {
                 password = newValue,
                 passwordError = if (current.passwordError != null) validatePassword(newValue) else null,
                 confirmPasswordError = newConfirmError,
-                isSubmitSuccess = false
+                isSubmitSuccess = false,
+                authError = null
             )
         }
     }
@@ -91,7 +106,8 @@ class RegisterViewModel : ViewModel() {
                 confirmPasswordError = if (current.confirmPasswordError != null) {
                     validateConfirmPassword(newValue, current.password)
                 } else null,
-                isSubmitSuccess = false
+                isSubmitSuccess = false,
+                authError = null
             )
         }
     }
@@ -150,7 +166,7 @@ class RegisterViewModel : ViewModel() {
 
     /**
      * Memvalidasi seluruh elemen input dan menggabungkan data (Nama Depan + Nama Belakang).
-     * Mengembalikan true jika seluruh input valid.
+     * Mengembalikan true jika seluruh input valid secara lokal.
      */
     fun validateAndSubmit(): Boolean {
         val current = _uiState.value
@@ -172,13 +188,13 @@ class RegisterViewModel : ViewModel() {
                     passwordError = passwordErr,
                     confirmPasswordError = confirmErr,
                     isSubmitSuccess = false,
-                    submitMessage = null
+                    submitMessage = null,
+                    authError = null
                 )
             }
             return false
         }
 
-        // Pengolahan / Penggabungan dua input berbeda (Nama Depan + Nama Belakang)
         val fullName = "${current.firstName.trim()} ${current.lastName.trim()}"
 
         _uiState.update {
@@ -190,11 +206,69 @@ class RegisterViewModel : ViewModel() {
                 confirmPasswordError = null,
                 combinedFullName = fullName,
                 isSubmitSuccess = true,
-                submitMessage = "Akun berhasil dibuat untuk $fullName"
+                submitMessage = "Akun berhasil dibuat untuk $fullName",
+                authError = null
             )
         }
 
         return true
+    }
+
+    fun submitRegistration(onSuccess: (String) -> Unit) {
+        if (_uiState.value.isLoading) return
+        if (!validateAndSubmit()) return
+
+        val current = _uiState.value
+        val fullName = current.combinedFullName
+        _uiState.update { it.copy(isLoading = true, authError = null) }
+
+        viewModelScope.launch {
+            try {
+                authRepository.registerWithEmail(
+                    firstName = current.firstName.trim(),
+                    lastName = current.lastName.trim(),
+                    email = current.email.trim(),
+                    password = current.password
+                )
+                _uiState.update { it.copy(isLoading = false, isSubmitSuccess = true, authError = null) }
+                onSuccess(fullName)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isSubmitSuccess = false,
+                        authError = e.message ?: "Gagal mendaftarkan akun ke Firebase."
+                    )
+                }
+            }
+        }
+    }
+
+    fun signInWithGoogle(context: Context, onSuccess: (String) -> Unit) {
+        if (_uiState.value.isLoading) return
+        _uiState.update { it.copy(isLoading = true, authError = null) }
+        viewModelScope.launch {
+            try {
+                val profile = authRepository.signInWithGoogle(context)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        combinedFullName = profile.fullName,
+                        email = profile.email,
+                        isSubmitSuccess = true,
+                        authError = null
+                    )
+                }
+                onSuccess(profile.fullName)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        authError = e.message ?: "Gagal masuk dengan Google."
+                    )
+                }
+            }
+        }
     }
 
     fun resetForm() {

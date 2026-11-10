@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,31 +30,55 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.yap_finalprojectpapb.R
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
 import com.example.yap_finalprojectpapb.ui.components.AppButtonVariant
 import com.example.yap_finalprojectpapb.ui.components.AppTextField
 import com.example.yap_finalprojectpapb.ui.theme.BlueDarker
+import com.example.yap_finalprojectpapb.ui.theme.BlueLight
+import com.example.yap_finalprojectpapb.ui.theme.BlueNormal
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
 import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
+import com.example.yap_finalprojectpapb.ui.theme.RedLight
+import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
+import com.example.yap_finalprojectpapb.ui.viewmodels.AuthViewModel
 
 @Composable
 fun ForgotPasswordScreen(
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSendClick: () -> Unit = {}
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearFeedback()
+    }
+
     ForgotPasswordContent(
+        isLoading = authState.isLoading,
+        errorMessage = authState.errorMessage,
+        successMessage = authState.successMessage,
         onBackClick = onBackClick,
-        onSendClick = onSendClick
+        onSendSubmit = { email ->
+            authViewModel.sendPasswordReset(
+                email = email,
+                onSuccess = onSendClick
+            )
+        }
     )
 }
 
 @Composable
 fun ForgotPasswordContent(
-    onBackClick: () -> Unit,
-    onSendClick: () -> Unit
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    successMessage: String? = null,
+    onBackClick: () -> Unit = {},
+    onSendSubmit: (String) -> Unit = {}
 ) {
     var email by rememberSaveable { mutableStateOf("") }
 
@@ -88,13 +115,51 @@ fun ForgotPasswordContent(
                     color = BlueDarker
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = RedLight,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontFamily = PlusJakartaSansFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = RedNormal,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
+
+                if (!successMessage.isNullOrBlank()) {
+                    Surface(
+                        color = BlueLight,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = successMessage,
+                            fontFamily = PlusJakartaSansFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = BlueNormal,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
 
                 AppTextField(
                     label = "Email",
                     value = email,
                     onValueChange = { email = it },
-                    placeholder = "Placeholder"
+                    placeholder = "name@example.com"
                 )
             }
 
@@ -104,8 +169,9 @@ fun ForgotPasswordContent(
                     .padding(bottom = 48.dp)
             ) {
                 AppButton(
-                    text = "Send",
-                    onClick = onSendClick,
+                    text = if (isLoading) "Mengirim..." else "Send",
+                    onClick = { onSendSubmit(email) },
+                    enabled = !isLoading,
                     variant = AppButtonVariant.Primary,
                     colorStyle = AppButtonColorStyle.Blue
                 )
@@ -137,7 +203,7 @@ fun HeaderWithTitle(
         Text(
             text = title,
             fontFamily = PlusJakartaSansFamily,
-            fontSize = 24.sp, // Judul atas 24px
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = BlueDarker,
             modifier = Modifier.padding(start = 8.dp)
@@ -149,6 +215,6 @@ fun HeaderWithTitle(
 @Composable
 fun ForgotPasswordScreenPreview() {
     YAPFinalProjectPAPBTheme {
-        ForgotPasswordScreen()
+        ForgotPasswordContent()
     }
 }

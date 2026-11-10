@@ -8,41 +8,70 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
 import com.example.yap_finalprojectpapb.ui.components.AppButtonVariant
 import com.example.yap_finalprojectpapb.ui.components.AppTextField
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
+import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
+import com.example.yap_finalprojectpapb.ui.theme.RedLight
+import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
+import com.example.yap_finalprojectpapb.ui.viewmodels.AuthViewModel
 
 @Composable
 fun ChangeNameScreen(
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSendClick: () -> Unit = {}
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearFeedback()
+    }
+
     ChangeNameContent(
+        initialName = authState.userProfile?.fullName.orEmpty(),
+        isLoading = authState.isLoading,
+        errorMessage = authState.errorMessage,
         onBackClick = onBackClick,
-        onSendClick = onSendClick
+        onSendSubmit = { newName ->
+            authViewModel.updateName(
+                newName = newName,
+                onSuccess = onSendClick
+            )
+        }
     )
 }
 
 @Composable
 fun ChangeNameContent(
-    onBackClick: () -> Unit,
-    onSendClick: () -> Unit
+    initialName: String = "",
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onBackClick: () -> Unit = {},
+    onSendSubmit: (String) -> Unit = {}
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable(initialName) { mutableStateOf(initialName) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -68,13 +97,32 @@ fun ChangeNameContent(
                     onBackClick = onBackClick
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = RedLight,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontFamily = PlusJakartaSansFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = RedNormal,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
 
                 AppTextField(
                     label = "Name",
                     value = name,
                     onValueChange = { name = it },
-                    placeholder = "Placeholder"
+                    placeholder = "Enter full name"
                 )
             }
 
@@ -84,8 +132,9 @@ fun ChangeNameContent(
                     .padding(bottom = 48.dp)
             ) {
                 AppButton(
-                    text = "Send",
-                    onClick = onSendClick,
+                    text = if (isLoading) "Menyimpan..." else "Send",
+                    onClick = { onSendSubmit(name) },
+                    enabled = !isLoading,
                     variant = AppButtonVariant.Primary,
                     colorStyle = AppButtonColorStyle.Blue
                 )
@@ -98,6 +147,6 @@ fun ChangeNameContent(
 @Composable
 fun ChangeNameScreenPreview() {
     YAPFinalProjectPAPBTheme {
-        ChangeNameScreen()
+        ChangeNameContent()
     }
 }

@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,6 +31,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,9 +52,12 @@ import com.example.yap_finalprojectpapb.ui.theme.BlueDarker
 import com.example.yap_finalprojectpapb.ui.theme.BlueLightActive
 import com.example.yap_finalprojectpapb.ui.theme.BlueNormal
 import com.example.yap_finalprojectpapb.ui.theme.Neutral100
+import com.example.yap_finalprojectpapb.ui.theme.Neutral200
 import com.example.yap_finalprojectpapb.ui.theme.Neutral500
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
 import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
+import com.example.yap_finalprojectpapb.ui.theme.RedLight
+import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
 import com.example.yap_finalprojectpapb.ui.viewmodels.RegisterUiState
 import com.example.yap_finalprojectpapb.ui.viewmodels.RegisterViewModel
@@ -62,6 +69,7 @@ fun RegisterScreen(
     onLogInClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     RegisterContent(
         uiState = uiState,
@@ -73,9 +81,10 @@ fun RegisterScreen(
         onTogglePassword = viewModel::togglePasswordVisibility,
         onToggleConfirmPassword = viewModel::toggleConfirmPasswordVisibility,
         onSubmit = {
-            if (viewModel.validateAndSubmit()) {
-                onRegisterSuccess(viewModel.uiState.value.combinedFullName)
-            }
+            viewModel.submitRegistration(onSuccess = onRegisterSuccess)
+        },
+        onGoogleSignInClick = {
+            viewModel.signInWithGoogle(context = context, onSuccess = onRegisterSuccess)
         },
         onLogInClick = onLogInClick
     )
@@ -92,6 +101,7 @@ fun RegisterContent(
     onTogglePassword: () -> Unit,
     onToggleConfirmPassword: () -> Unit,
     onSubmit: () -> Unit,
+    onGoogleSignInClick: () -> Unit = {},
     onLogInClick: () -> Unit
 ) {
     Surface(
@@ -110,7 +120,7 @@ fun RegisterContent(
             Text(
                 text = "Register",
                 fontFamily = PlusJakartaSansFamily,
-                fontSize = 24.sp, // Judul 24px
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = BlueDarker
             )
@@ -127,6 +137,25 @@ fun RegisterContent(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            if (!uiState.authError.isNullOrBlank()) {
+                Surface(
+                    color = RedLight,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Text(
+                        text = uiState.authError,
+                        fontFamily = PlusJakartaSansFamily,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = RedNormal,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+            }
+
             // Baris Nama Depan & Nama Belakang (Dua input berbeda yang digabungkan saat submit)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -137,7 +166,7 @@ fun RegisterContent(
                     label = "Nama Depan",
                     value = uiState.firstName,
                     onValueChange = onFirstNameChange,
-                    placeholder = "Edgar",
+                    placeholder = "John",
                     isError = uiState.firstNameError != null,
                     errorMessage = uiState.firstNameError
                 )
@@ -147,7 +176,7 @@ fun RegisterContent(
                     label = "Nama Belakang",
                     value = uiState.lastName,
                     onValueChange = onLastNameChange,
-                    placeholder = "Jason",
+                    placeholder = "Doe",
                     isError = uiState.lastNameError != null,
                     errorMessage = uiState.lastNameError
                 )
@@ -270,13 +299,49 @@ fun RegisterContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             AppButton(
-                text = "Register",
+                text = if (uiState.isLoading) "Mendaftarkan..." else "Register",
                 onClick = onSubmit,
+                enabled = !uiState.isLoading,
                 variant = AppButtonVariant.Primary,
                 colorStyle = AppButtonColorStyle.Blue
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Neutral200)
+                Text(
+                    text = "atau",
+                    fontFamily = PlusJakartaSansFamily,
+                    fontSize = 13.sp,
+                    color = Neutral500
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Neutral200)
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AppButton(
+                text = "Continue with Google",
+                onClick = onGoogleSignInClick,
+                enabled = !uiState.isLoading,
+                variant = AppButtonVariant.Secondary,
+                colorStyle = AppButtonColorStyle.Blue,
+                leadingIcon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_google_logo),
+                        contentDescription = "Google",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             )
 
             Spacer(modifier = Modifier.height(20.dp))

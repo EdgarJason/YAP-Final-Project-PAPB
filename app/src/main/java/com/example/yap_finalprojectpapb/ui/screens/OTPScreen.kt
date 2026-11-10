@@ -87,7 +87,7 @@ fun OTPContent(
                     label = "Enter OTP Code",
                     value = otpCode,
                     onValueChange = { otpCode = it },
-                    placeholder = "Placeholder"
+                    placeholder = "123456"
                 )
             }
 

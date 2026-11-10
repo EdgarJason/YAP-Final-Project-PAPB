@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,10 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
 import com.example.yap_finalprojectpapb.ui.components.AppButtonVariant
@@ -31,26 +36,47 @@ import com.example.yap_finalprojectpapb.ui.components.AppTextField
 import com.example.yap_finalprojectpapb.ui.theme.BlueDarker
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
 import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
+import com.example.yap_finalprojectpapb.ui.theme.RedLight
+import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
+import com.example.yap_finalprojectpapb.ui.viewmodels.AuthViewModel
 
 @Composable
 fun ChangePasswordScreen(
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onSendClick: () -> Unit = {},
     onForgotPasswordClick: () -> Unit = {}
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearFeedback()
+    }
+
     ChangePasswordContent(
+        isLoading = authState.isLoading,
+        errorMessage = authState.errorMessage,
         onBackClick = onBackClick,
-        onSendClick = onSendClick,
+        onSendSubmit = { currentPassword, newPassword, confirmNewPassword ->
+            authViewModel.changePassword(
+                currentPassword = currentPassword,
+                newPassword = newPassword,
+                confirmNewPassword = confirmNewPassword,
+                onSuccess = onSendClick
+            )
+        },
         onForgotPasswordClick = onForgotPasswordClick
     )
 }
 
 @Composable
 fun ChangePasswordContent(
-    onBackClick: () -> Unit,
-    onSendClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onBackClick: () -> Unit = {},
+    onSendSubmit: (String, String, String) -> Unit = { _, _, _ -> },
+    onForgotPasswordClick: () -> Unit = {}
 ) {
     var currentPassword by rememberSaveable { mutableStateOf("") }
     var newPassword by rememberSaveable { mutableStateOf("") }
@@ -89,13 +115,33 @@ fun ChangePasswordContent(
                     color = BlueDarker
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = RedLight,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontFamily = PlusJakartaSansFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = RedNormal,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
 
                 AppTextField(
                     label = "Current Password",
                     value = currentPassword,
                     onValueChange = { currentPassword = it },
-                    placeholder = "Placeholder"
+                    placeholder = "Enter current password",
+                    visualTransformation = PasswordVisualTransformation()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -104,7 +150,8 @@ fun ChangePasswordContent(
                     label = "New Password",
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    placeholder = "Placeholder"
+                    placeholder = "Enter new password",
+                    visualTransformation = PasswordVisualTransformation()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -113,7 +160,8 @@ fun ChangePasswordContent(
                     label = "Confirm New Password",
                     value = confirmNewPassword,
                     onValueChange = { confirmNewPassword = it },
-                    placeholder = "Placeholder"
+                    placeholder = "Re-enter new password",
+                    visualTransformation = PasswordVisualTransformation()
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -137,8 +185,9 @@ fun ChangePasswordContent(
                     .padding(bottom = 48.dp)
             ) {
                 AppButton(
-                    text = "Send",
-                    onClick = onSendClick,
+                    text = if (isLoading) "Menyimpan..." else "Send",
+                    onClick = { onSendSubmit(currentPassword, newPassword, confirmNewPassword) },
+                    enabled = !isLoading,
                     variant = AppButtonVariant.Primary,
                     colorStyle = AppButtonColorStyle.Blue
                 )
@@ -151,6 +200,6 @@ fun ChangePasswordContent(
 @Composable
 fun ChangePasswordScreenPreview() {
     YAPFinalProjectPAPBTheme {
-        ChangePasswordScreen()
+        ChangePasswordContent()
     }
 }

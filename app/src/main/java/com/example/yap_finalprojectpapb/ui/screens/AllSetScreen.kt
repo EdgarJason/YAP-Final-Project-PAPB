@@ -49,54 +49,49 @@ fun AllSetContent(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Judul "All set!" di pinggir kiri
                 Text(
                     text = "All set!",
                     fontFamily = PlusJakartaSansFamily,
-                    fontSize = 24.sp, // Judul 24px
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BlueDarker
+                    color = BlueDarker,
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(60.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
-                // Mascot & Text di Tengah
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    YapMascot(
-                        size = 140.dp,
-                        mood = MascotMood.Happy,
-                        showSpeechBubble = false
-                    )
+                YapMascot(
+                    size = 140.dp,
+                    mood = MascotMood.Happy,
+                    showSpeechBubble = false
+                )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                    Text(
-                        text = "Make your apps\nwith YAP!",
-                        fontFamily = PlusJakartaSansFamily,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlueDarker,
-                        textAlign = TextAlign.Center
-                    )
+                Text(
+                    text = "Make your apps\nwith YAP!",
+                    fontFamily = PlusJakartaSansFamily,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BlueDarker,
+                    textAlign = TextAlign.Center
+                )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = "Just YAP to make your APP",
-                        fontFamily = PlusJakartaSansFamily,
-                        fontSize = 14.sp,
-                        color = BlueDarker,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = "Just YAP to make your APP",
+                    fontFamily = PlusJakartaSansFamily,
+                    fontSize = 14.sp,
+                    color = BlueDarker,
+                    textAlign = TextAlign.Center
+                )
             }
 
             // Tombol di bagian paling bawah dengan jarak 48px dari bottom

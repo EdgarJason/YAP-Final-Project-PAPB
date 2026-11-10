@@ -12,12 +12,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,6 +35,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.yap_finalprojectpapb.R
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
@@ -42,26 +46,48 @@ import com.example.yap_finalprojectpapb.ui.theme.BlueNormal
 import com.example.yap_finalprojectpapb.ui.theme.Neutral500
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
 import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
+import com.example.yap_finalprojectpapb.ui.theme.RedLight
+import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
+import com.example.yap_finalprojectpapb.ui.viewmodels.AuthViewModel
 
 @Composable
 fun DeleteAccountScreen(
+    authViewModel: AuthViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
     onForgotPasswordClick: () -> Unit = {}
 ) {
+    val authState by authViewModel.uiState.collectAsState()
+    val hasPassword = authState.userProfile?.hasPassword ?: true
+
+    LaunchedEffect(Unit) {
+        authViewModel.clearFeedback()
+    }
+
     DeleteAccountContent(
+        hasPassword = hasPassword,
+        isLoading = authState.isLoading,
+        errorMessage = authState.errorMessage,
         onBackClick = onBackClick,
-        onDeleteClick = onDeleteClick,
+        onDeleteSubmit = { password ->
+            authViewModel.deleteAccount(
+                password = password,
+                onSuccess = onDeleteClick
+            )
+        },
         onForgotPasswordClick = onForgotPasswordClick
     )
 }
 
 @Composable
 fun DeleteAccountContent(
-    onBackClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit
+    hasPassword: Boolean = true,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onBackClick: () -> Unit = {},
+    onDeleteSubmit: (String) -> Unit = {},
+    onForgotPasswordClick: () -> Unit = {}
 ) {
     var password by rememberSaveable { mutableStateOf("") }
     var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
@@ -103,7 +129,7 @@ fun DeleteAccountContent(
                     Text(
                         text = "Delete Account",
                         fontFamily = PlusJakartaSansFamily,
-                        fontSize = 24.sp, // Judul 24px
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = BlueDarker,
                         modifier = Modifier.padding(start = 8.dp)
@@ -113,52 +139,77 @@ fun DeleteAccountContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Enter your password to confirm account deletion.",
+                    text = if (hasPassword) {
+                        "Enter your password to confirm account deletion."
+                    } else {
+                        "Konfirmasi penghapusan akun YAP. Seluruh data profil dan riwayat percakapan Anda akan dihapus permanen."
+                    },
                     fontFamily = PlusJakartaSansFamily,
                     fontSize = 16.sp,
                     color = BlueDarker
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                AppTextField(
-                    label = "Your Password",
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = "Placeholder",
-                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { isPasswordVisible = !isPasswordVisible },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (isPasswordVisible) R.drawable.ic_eye else R.drawable.ic_eye_closed
-                                ),
-                                contentDescription = "Toggle Visibility",
-                                tint = if (isPasswordVisible) BlueNormal else Neutral500,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                if (!errorMessage.isNullOrBlank()) {
+                    Surface(
+                        color = RedLight,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontFamily = PlusJakartaSansFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = RedNormal,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     }
-                )
+                }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                if (hasPassword) {
+                    AppTextField(
+                        label = "Your Password",
+                        value = password,
+                        onValueChange = { password = it },
+                        placeholder = "Enter your password to confirm",
+                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable { isPasswordVisible = !isPasswordVisible },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (isPasswordVisible) R.drawable.ic_eye else R.drawable.ic_eye_closed
+                                    ),
+                                    contentDescription = "Toggle Visibility",
+                                    tint = if (isPasswordVisible) BlueNormal else Neutral500,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    )
 
-                Text(
-                    text = "Forgot Password?",
-                    fontFamily = PlusJakartaSansFamily,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = BlueDarker,
-                    textDecoration = TextDecoration.Underline,
-                    modifier = Modifier
-                        .align(Alignment.Start)
-                        .clickable { onForgotPasswordClick() }
-                )
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    Text(
+                        text = "Forgot Password?",
+                        fontFamily = PlusJakartaSansFamily,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = BlueDarker,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .clickable { onForgotPasswordClick() }
+                    )
+                }
             }
 
             Column(
@@ -167,8 +218,9 @@ fun DeleteAccountContent(
                     .padding(bottom = 48.dp)
             ) {
                 AppButton(
-                    text = "Delete My Account",
-                    onClick = onDeleteClick,
+                    text = if (isLoading) "Menghapus..." else "Delete My Account",
+                    onClick = { onDeleteSubmit(if (hasPassword) password else "") },
+                    enabled = !isLoading,
                     variant = AppButtonVariant.Primary,
                     colorStyle = AppButtonColorStyle.Red
                 )
@@ -181,6 +233,6 @@ fun DeleteAccountContent(
 @Composable
 fun DeleteAccountScreenPreview() {
     YAPFinalProjectPAPBTheme {
-        DeleteAccountScreen()
+        DeleteAccountContent()
     }
 }
