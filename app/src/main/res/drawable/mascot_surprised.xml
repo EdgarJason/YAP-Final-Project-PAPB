@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Ambient Sparkle Stars -->
+    <path
+        android:pathData="M 28,42 Q 28,52 18,52 Q 28,52 28,62 Q 28,52 38,52 Q 28,52 28,42 Z"
+        android:fillColor="#FBBF24"
+        android:fillAlpha="0.9" />
+    <path
+        android:pathData="M 172,65 Q 172,75 162,75 Q 172,75 172,85 Q 172,75 182,75 Q 172,75 172,65 Z"
+        android:fillColor="#FBBF24"
+        android:fillAlpha="0.9" />
+    <path
+        android:pathData="M 32,110 Q 32,118 24,118 Q 32,118 32,126 Q 32,118 40,118 Q 32,118 32,110 Z"
+        android:fillColor="#93C5FD"
+        android:fillAlpha="0.6" />
+
+    <!-- Ground Shadow -->
+    <path
+        android:pathData="M 48,180 a 52,9 0 1,0 104,0 a 52,9 0 1,0 -104,0"
+        android:fillColor="#BFDBFE"
+        android:fillAlpha="0.4" />
+
+    <!-- Perky Left Ear Outer -->
+    <path
+        android:pathData="M 64,66 C 50,44 72,28 85,48 Z"
+        android:fillColor="#2563EB" />
+    <!-- Perky Left Ear Inner -->
+    <path
+        android:pathData="M 67,61 C 58,46 72,36 80,48 Z"
+        android:fillColor="#93C5FD" />
+
+    <!-- Perky Right Ear Outer -->
+    <path
+        android:pathData="M 136,66 C 150,44 128,28 115,48 Z"
+        android:fillColor="#2563EB" />
+    <!-- Perky Right Ear Inner -->
+    <path
+        android:pathData="M 133,61 C 142,46 128,36 120,48 Z"
+        android:fillColor="#93C5FD" />
+
+    <!-- Chubby Pear Body -->
+    <path
+        android:pathData="M 60,76 C 42,90 36,122 45,146 C 52,165 70,174 88,174 L 112,174 C 130,174 148,165 155,146 C 164,122 158,90 140,76 C 126,65 74,65 60,76 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="100"
+                android:startY="65"
+                android:endX="100"
+                android:endY="174">
+                <item android:offset="0.0" android:color="#4F8EF7" />
+                <item android:offset="0.6" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Belly Highlight -->
+    <path
+        android:pathData="M 62,132 a 38,32 0 1,0 76,0 a 38,32 0 1,0 -76,0"
+        android:fillColor="#93C5FD"
+        android:fillAlpha="0.4" />
+
+    <!-- Feet -->
+    <path
+        android:pathData="M 64,174 a 14,8 0 1,0 28,0 a 14,8 0 1,0 -28,0"
+        android:fillColor="#1D4ED8" />
+    <path
+        android:pathData="M 108,174 a 14,8 0 1,0 28,0 a 14,8 0 1,0 -28,0"
+        android:fillColor="#1D4ED8" />
+
+    <!-- Left Paw (Perked Up) -->
+    <path
+        android:pathData="M 46,112 C 32,114 34,130 48,126 C 54,124 52,116 46,112 Z"
+        android:fillColor="#2563EB" />
+
+    <!-- Right Paw (Perked Up) -->
+    <path
+        android:pathData="M 154,112 C 168,114 166,130 152,126 C 146,124 148,116 154,112 Z"
+        android:fillColor="#2563EB" />
+
+    <!-- Cheeks (Surprised Blush) -->
+    <path
+        android:pathData="M 57,112 a 8,5 0 1,0 16,0 a 8,5 0 1,0 -16,0"
+        android:fillColor="#60A5FA"
+        android:fillAlpha="0.85" />
+    <path
+        android:pathData="M 127,112 a 8,5 0 1,0 16,0 a 8,5 0 1,0 -16,0"
+        android:fillColor="#60A5FA"
+        android:fillAlpha="0.85" />
+
+    <!-- Surprised Wide Eyes (O O) -->
+    <path
+        android:pathData="M 67,98 a 10,13 0 1,0 20,0 a 10,13 0 1,0 -20,0"
+        android:fillColor="#0F172A" />
+    <path
+        android:pathData="M 74,94 a 4,5 0 1,0 8,0 a 4,5 0 1,0 -8,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M 72,102 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0"
+        android:fillColor="#FFFFFF" />
+
+    <path
+        android:pathData="M 113,98 a 10,13 0 1,0 20,0 a 10,13 0 1,0 -20,0"
+        android:fillColor="#0F172A" />
+    <path
+        android:pathData="M 120,94 a 4,5 0 1,0 8,0 a 4,5 0 1,0 -8,0"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M 118,102 a 2,2 0 1,0 4,0 a 2,2 0 1,0 -4,0"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Surprised Cute Open Mouth (o) -->
+    <path
+        android:pathData="M 96,112 a 4.5,6.5 0 1,0 9,0 a 4.5,6.5 0 1,0 -9,0"
+        android:fillColor="#FB7185"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.2" />
+</vector>

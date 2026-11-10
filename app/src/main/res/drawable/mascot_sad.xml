@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Ambient Sparkle Stars (Dimmer) -->
+    <path
+        android:pathData="M 28,42 Q 28,52 18,52 Q 28,52 28,62 Q 28,52 38,52 Q 28,52 28,42 Z"
+        android:fillColor="#93C5FD"
+        android:fillAlpha="0.4" />
+    <path
+        android:pathData="M 172,65 Q 172,75 162,75 Q 172,75 172,85 Q 172,75 182,75 Q 172,75 172,65 Z"
+        android:fillColor="#93C5FD"
+        android:fillAlpha="0.4" />
+
+    <!-- Ground Shadow -->
+    <path
+        android:pathData="M 48,180 a 52,9 0 1,0 104,0 a 52,9 0 1,0 -104,0"
+        android:fillColor="#BFDBFE"
+        android:fillAlpha="0.4" />
+
+    <!-- Droopy Left Ear Outer -->
+    <path
+        android:pathData="M 64,72 C 48,56 68,38 82,56 Z"
+        android:fillColor="#2563EB" />
+    <!-- Droopy Left Ear Inner -->
+    <path
+        android:pathData="M 66,67 C 56,54 70,44 78,56 Z"
+        android:fillColor="#93C5FD" />
+
+    <!-- Droopy Right Ear Outer -->
+    <path
+        android:pathData="M 136,72 C 152,56 132,38 118,56 Z"
+        android:fillColor="#2563EB" />
+    <!-- Droopy Right Ear Inner -->
+    <path
+        android:pathData="M 134,67 C 144,54 130,44 122,56 Z"
+        android:fillColor="#93C5FD" />
+
+    <!-- Chubby Pear Body -->
+    <path
+        android:pathData="M 60,76 C 42,90 36,122 45,146 C 52,165 70,174 88,174 L 112,174 C 130,174 148,165 155,146 C 164,122 158,90 140,76 C 126,65 74,65 60,76 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="100"
+                android:startY="65"
+                android:endX="100"
+                android:endY="174">
+                <item android:offset="0.0" android:color="#4F8EF7" />
+                <item android:offset="0.6" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Belly Highlight -->
+    <path
+        android:pathData="M 62,132 a 38,32 0 1,0 76,0 a 38,32 0 1,0 -76,0"
+        android:fillColor="#93C5FD"
+        android:fillAlpha="0.35" />
+
+    <!-- Feet -->
+    <path
+        android:pathData="M 64,174 a 14,8 0 1,0 28,0 a 14,8 0 1,0 -28,0"
+        android:fillColor="#1D4ED8" />
+    <path
+        android:pathData="M 108,174 a 14,8 0 1,0 28,0 a 14,8 0 1,0 -28,0"
+        android:fillColor="#1D4ED8" />
+
+    <!-- Left Paw (Lowered) -->
+    <path
+        android:pathData="M 46,122 C 32,126 36,140 50,136 C 56,134 54,125 46,122 Z"
+        android:fillColor="#2563EB" />
+
+    <!-- Right Paw (Lowered) -->
+    <path
+        android:pathData="M 154,122 C 168,126 164,140 150,136 C 144,134 146,125 154,122 Z"
+        android:fillColor="#2563EB" />
+
+    <!-- Sad Droopy Eyebrows -->
+    <path
+        android:pathData="M 72,89 Q 80,94 86,91"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 114,91 Q 120,94 128,89"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+
+    <!-- Big Tearful Watery Left Eye -->
+    <path
+        android:pathData="M 69,103 a 9,12 0 1,0 18,0 a 9,12 0 1,0 -18,0"
+        android:fillColor="#0F172A" />
+    <path
+        android:pathData="M 74,105 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0"
+        android:fillColor="#BAE6FD" />
+    <path
+        android:pathData="M 78,98 a 2.5,3 0 1,0 5,0 a 2.5,3 0 1,0 -5,0"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Big Tearful Watery Right Eye -->
+    <path
+        android:pathData="M 113,103 a 9,12 0 1,0 18,0 a 9,12 0 1,0 -18,0"
+        android:fillColor="#0F172A" />
+    <path
+        android:pathData="M 118,105 a 4,4 0 1,0 8,0 a 4,4 0 1,0 -8,0"
+        android:fillColor="#BAE6FD" />
+    <path
+        android:pathData="M 122,98 a 2.5,3 0 1,0 5,0 a 2.5,3 0 1,0 -5,0"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Tiny Glistening Teardrop -->
+    <path
+        android:pathData="M 62,116 C 60,121 64,124 64,124 C 64,124 68,121 66,116 C 65,114 63,114 62,116 Z"
+        android:fillColor="#38BDF8" />
+
+    <!-- Cheeks (Blushing softly) -->
+    <path
+        android:pathData="M 59,114 a 7,4 0 1,0 14,0 a 7,4 0 1,0 -14,0"
+        android:fillColor="#60A5FA"
+        android:fillAlpha="0.5" />
+    <path
+        android:pathData="M 127,114 a 7,4 0 1,0 14,0 a 7,4 0 1,0 -14,0"
+        android:fillColor="#60A5FA"
+        android:fillAlpha="0.5" />
+
+    <!-- Sad Pout Mouth (Downturned Curve) -->
+    <path
+        android:pathData="M 94,117 Q 100,111 106,117"
+        android:strokeColor="#0F172A"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round" />
+</vector>
