@@ -17,6 +17,8 @@ interface AuthRepository {
         password: String
     ): UserProfile
     suspend fun signInWithGoogle(context: Context): UserProfile
+    suspend fun sendEmailOtp(email: String, otpCode: String)
+    suspend fun sendEmailVerification()
     suspend fun sendPasswordReset(email: String)
     suspend fun updateName(newName: String): UserProfile
     suspend fun changeEmail(newEmail: String, currentPassword: String? = null)

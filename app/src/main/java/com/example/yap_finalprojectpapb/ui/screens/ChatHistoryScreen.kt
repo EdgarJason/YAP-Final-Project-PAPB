@@ -8,7 +8,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.yap_finalprojectpapb.R
 import com.example.yap_finalprojectpapb.data.StudioConversation
 import com.example.yap_finalprojectpapb.ui.components.AppButton
 import com.example.yap_finalprojectpapb.ui.components.AppTextField
@@ -37,7 +40,19 @@ fun ChatHistoryScreen(
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Spacer(Modifier.height(4.dp))
             HeaderWithTitle(title = "Riwayat percakapan", onBackClick = onBackClick)
-            AppTextField(value = search, onValueChange = { search = it }, placeholder = "Cari percakapan")
+            AppTextField(
+                value = search,
+                onValueChange = { search = it },
+                placeholder = "Cari percakapan...",
+                trailingIcon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_search),
+                        contentDescription = "Search",
+                        tint = Neutral500,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            )
             if (results.isEmpty()) {
                 Text(if (entries.isEmpty()) "Percakapanmu akan tersimpan di sini." else "Tidak ada percakapan yang cocok.",
                     color = Neutral500, style = MaterialTheme.typography.bodyMedium)

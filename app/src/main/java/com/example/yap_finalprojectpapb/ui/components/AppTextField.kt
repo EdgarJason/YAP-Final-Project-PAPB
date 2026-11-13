@@ -24,6 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +57,7 @@ fun AppTextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
     placeholder: String = "",
     label: String? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
@@ -65,6 +68,7 @@ fun AppTextField(
     errorMessage: String? = null,
     enabled: Boolean = true,
     singleLine: Boolean = true,
+    maxLines: Int = if (singleLine) 1 else 5,
     readOnly: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -102,7 +106,9 @@ fun AppTextField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
             enabled = enabled,
             readOnly = readOnly,
             textStyle = TextStyle(
@@ -117,6 +123,7 @@ fun AppTextField(
             keyboardActions = keyboardActions,
             interactionSource = interactionSource,
             singleLine = singleLine,
+            maxLines = maxLines,
             decorationBox = { innerTextField ->
                 Row(
                     modifier = Modifier

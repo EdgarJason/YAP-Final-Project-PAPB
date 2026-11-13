@@ -23,6 +23,12 @@ import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.OAuthProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.net.HttpURLConnection
+import java.net.URI
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -221,6 +227,45 @@ class AuthRepositoryImpl(
         is Activity -> this
         is ContextWrapper -> baseContext.findActivity()
         else -> null
+    }
+
+    override suspend fun sendEmailOtp(email: String, otpCode: String) {
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URI("https://api.emailjs.com/api/v1.0/email/send").toURL()
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                }
+                val payload = buildJsonObject {
+                    put("service_id", "service_yap")
+                    put("template_id", "template_otp")
+                    put("user_id", "user_yap")
+                    put("template_params", buildJsonObject {
+                        put("to_email", trimmedEmail)
+                        put("otp_code", otpCode)
+                    })
+                }.toString()
+                connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+                connection.responseCode
+            } catch (e: Exception) {
+                Log.e(TAG, "Gagal mengirim email OTP ke $trimmedEmail: ${e.message}")
+            }
+        }
+    }
+
+    override suspend fun sendEmailVerification() {
+        val user = auth.currentUser ?: return
+        try {
+            user.sendEmailVerification().await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal mengirim email verifikasi: ${e.message}", e)
+        }
     }
 
     override suspend fun sendPasswordReset(email: String) {

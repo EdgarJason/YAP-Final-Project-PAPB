@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,6 +47,7 @@ import com.example.yap_finalprojectpapb.ui.screens.CodeViewerScreen
 import com.example.yap_finalprojectpapb.ui.screens.DeleteAccountScreen
 import com.example.yap_finalprojectpapb.ui.screens.ForgotPasswordScreen
 import com.example.yap_finalprojectpapb.ui.screens.LoginScreen
+import com.example.yap_finalprojectpapb.ui.screens.NameInputScreen
 import com.example.yap_finalprojectpapb.ui.screens.OTPScreen
 import com.example.yap_finalprojectpapb.ui.screens.PreviewScreen
 import com.example.yap_finalprojectpapb.ui.screens.ProfileScreen
@@ -58,6 +60,7 @@ import com.google.firebase.auth.FirebaseAuth
 
 object Routes {
     const val WELCOME = "welcome"
+    const val NAME_INPUT = "name_input"
     const val LOGIN = "login"
     const val REGISTER = "register"
     const val ALL_SET = "all_set"
@@ -137,32 +140,43 @@ fun MainAppContent() {
                     enterTransition = {
                         slideIntoContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(350, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing))
                     },
                     exitTransition = {
                         slideOutOfContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(350, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(350, easing = FastOutSlowInEasing))
                     },
                     popEnterTransition = {
                         slideIntoContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.End,
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(350, easing = FastOutSlowInEasing)
+                        ) + fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing))
                     },
                     popExitTransition = {
                         slideOutOfContainer(
                             towards = AnimatedContentTransitionScope.SlideDirection.End,
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(350, easing = FastOutSlowInEasing)
+                        ) + fadeOut(animationSpec = tween(350, easing = FastOutSlowInEasing))
                     }
                 ) {
                 composable(Routes.WELCOME) {
                     WelcomeScreen(
                         onLogInClick = { navController.navigate(Routes.LOGIN) },
                         onRegisterClick = { navController.navigate(Routes.REGISTER) }
+                    )
+                }
+                composable(Routes.NAME_INPUT) {
+                    NameInputScreen(
+                        authViewModel = authViewModel,
+                        onBackClick = { navController.popBackStack() },
+                        onNextClick = {
+                            navController.navigate(Routes.ALL_SET) {
+                                popUpTo(Routes.WELCOME) { inclusive = true }
+                            }
+                        }
                     )
                 }
                 composable(Routes.LOGIN) {
@@ -179,12 +193,30 @@ fun MainAppContent() {
                 }
                 composable(Routes.REGISTER) {
                     RegisterScreen(
-                        onRegisterSuccess = { _ ->
+                        authViewModel = authViewModel,
+                        onRegisterSuccess = {
+                            navController.navigate(Routes.NAME_INPUT)
+                        },
+                        onLogInClick = { navController.navigate(Routes.LOGIN) }
+                    )
+                }
+                composable(Routes.OTP) {
+                    OTPScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onConfirmClick = { _ ->
+                            navController.navigate(Routes.NAME_INPUT)
+                        }
+                    )
+                }
+                composable(Routes.NAME_INPUT) {
+                    NameInputScreen(
+                        authViewModel = authViewModel,
+                        onBackClick = { navController.popBackStack() },
+                        onNextClick = {
                             navController.navigate(Routes.ALL_SET) {
                                 popUpTo(Routes.WELCOME) { inclusive = true }
                             }
-                        },
-                        onLogInClick = { navController.navigate(Routes.LOGIN) }
+                        }
                     )
                 }
                 composable(Routes.ALL_SET) {

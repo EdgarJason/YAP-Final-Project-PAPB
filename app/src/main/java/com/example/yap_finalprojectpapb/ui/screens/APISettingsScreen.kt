@@ -70,7 +70,7 @@ fun APISettingsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 HeaderWithTitle(
-                    title = "Pengaturan AI",
+                    title = "API Settings",
                     onBackClick = onBackClick
                 )
 

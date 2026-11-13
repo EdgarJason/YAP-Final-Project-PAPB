@@ -1,12 +1,5 @@
 package com.example.yap_finalprojectpapb.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -49,9 +41,7 @@ import com.example.yap_finalprojectpapb.ui.components.AppButtonColorStyle
 import com.example.yap_finalprojectpapb.ui.components.AppButtonVariant
 import com.example.yap_finalprojectpapb.ui.components.AppTextField
 import com.example.yap_finalprojectpapb.ui.theme.BlueDarker
-import com.example.yap_finalprojectpapb.ui.theme.BlueLightActive
 import com.example.yap_finalprojectpapb.ui.theme.BlueNormal
-import com.example.yap_finalprojectpapb.ui.theme.Neutral100
 import com.example.yap_finalprojectpapb.ui.theme.Neutral200
 import com.example.yap_finalprojectpapb.ui.theme.Neutral500
 import com.example.yap_finalprojectpapb.ui.theme.NeutralWhite
@@ -59,32 +49,42 @@ import com.example.yap_finalprojectpapb.ui.theme.PlusJakartaSansFamily
 import com.example.yap_finalprojectpapb.ui.theme.RedLight
 import com.example.yap_finalprojectpapb.ui.theme.RedNormal
 import com.example.yap_finalprojectpapb.ui.theme.YAPFinalProjectPAPBTheme
+import com.example.yap_finalprojectpapb.ui.viewmodels.AuthViewModel
 import com.example.yap_finalprojectpapb.ui.viewmodels.RegisterUiState
 import com.example.yap_finalprojectpapb.ui.viewmodels.RegisterViewModel
 
 @Composable
 fun RegisterScreen(
-    viewModel: RegisterViewModel = viewModel(),
-    onRegisterSuccess: (String) -> Unit = {},
+    authViewModel: AuthViewModel = viewModel(),
+    registerViewModel: RegisterViewModel = viewModel(),
+    onRegisterSuccess: () -> Unit = {},
     onLogInClick: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by registerViewModel.uiState.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    val combinedAuthError = authState.errorMessage ?: uiState.authError
+    val isLoading = authState.isLoading || uiState.isLoading
+
     RegisterContent(
-        uiState = uiState,
-        onFirstNameChange = viewModel::onFirstNameChange,
-        onLastNameChange = viewModel::onLastNameChange,
-        onEmailChange = viewModel::onEmailChange,
-        onPasswordChange = viewModel::onPasswordChange,
-        onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
-        onTogglePassword = viewModel::togglePasswordVisibility,
-        onToggleConfirmPassword = viewModel::toggleConfirmPasswordVisibility,
+        uiState = uiState.copy(authError = combinedAuthError, isLoading = isLoading),
+        onEmailChange = registerViewModel::onEmailChange,
+        onPasswordChange = registerViewModel::onPasswordChange,
+        onConfirmPasswordChange = registerViewModel::onConfirmPasswordChange,
+        onTogglePassword = registerViewModel::togglePasswordVisibility,
+        onToggleConfirmPassword = registerViewModel::toggleConfirmPasswordVisibility,
         onSubmit = {
-            viewModel.submitRegistration(onSuccess = onRegisterSuccess)
+            if (registerViewModel.validateAndSubmit()) {
+                authViewModel.registerWithEmail(
+                    email = uiState.email.trim(),
+                    password = uiState.password,
+                    onSuccess = onRegisterSuccess
+                )
+            }
         },
         onGoogleSignInClick = {
-            viewModel.signInWithGoogle(context = context, onSuccess = onRegisterSuccess)
+            authViewModel.signInWithGoogle(context = context, onSuccess = onRegisterSuccess)
         },
         onLogInClick = onLogInClick
     )
@@ -93,8 +93,6 @@ fun RegisterScreen(
 @Composable
 fun RegisterContent(
     uiState: RegisterUiState,
-    onFirstNameChange: (String) -> Unit,
-    onLastNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -128,7 +126,7 @@ fun RegisterContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Lengkapi data akun untuk memulai eksplorasi YAP",
+                text = "Lengkapi email & kata sandi untuk membuat akun YAP",
                 fontFamily = PlusJakartaSansFamily,
                 fontSize = 14.sp,
                 color = Neutral500,
@@ -155,34 +153,6 @@ fun RegisterContent(
                     )
                 }
             }
-
-            // Baris Nama Depan & Nama Belakang (Dua input berbeda yang digabungkan saat submit)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                AppTextField(
-                    modifier = Modifier.weight(1f),
-                    label = "Nama Depan",
-                    value = uiState.firstName,
-                    onValueChange = onFirstNameChange,
-                    placeholder = "John",
-                    isError = uiState.firstNameError != null,
-                    errorMessage = uiState.firstNameError
-                )
-
-                AppTextField(
-                    modifier = Modifier.weight(1f),
-                    label = "Nama Belakang",
-                    value = uiState.lastName,
-                    onValueChange = onLastNameChange,
-                    placeholder = "Doe",
-                    isError = uiState.lastNameError != null,
-                    errorMessage = uiState.lastNameError
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             // Email
             AppTextField(
@@ -253,51 +223,6 @@ fun RegisterContent(
                     }
                 }
             )
-
-            // Kartu Bukti Penggabungan Data (Hasil olah Nama Depan + Nama Belakang)
-            AnimatedVisibility(
-                visible = uiState.isSubmitSuccess && uiState.combinedFullName.isNotEmpty(),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 20.dp)
-                        .background(
-                            color = Neutral100,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = BlueLightActive,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "✓ Data Berhasil Diolah:",
-                        fontFamily = PlusJakartaSansFamily,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlueNormal
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Nama Lengkap: ${uiState.combinedFullName}",
-                        fontFamily = PlusJakartaSansFamily,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = BlueDarker
-                    )
-                    Text(
-                        text = "Email Terdaftar: ${uiState.email}",
-                        fontFamily = PlusJakartaSansFamily,
-                        fontSize = 13.sp,
-                        color = Neutral500
-                    )
-                }
-            }
 
             Spacer(modifier = Modifier.height(28.dp))
 
@@ -375,14 +300,9 @@ fun RegisterScreenPreview() {
     YAPFinalProjectPAPBTheme {
         RegisterContent(
             uiState = RegisterUiState(
-                firstName = "Edgar",
-                lastName = "Jason",
                 email = "edgar@yap.app",
-                combinedFullName = "Edgar Jason",
                 isSubmitSuccess = true
             ),
-            onFirstNameChange = {},
-            onLastNameChange = {},
             onEmailChange = {},
             onPasswordChange = {},
             onConfirmPasswordChange = {},

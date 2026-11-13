@@ -140,7 +140,7 @@ fun ViewProfileContent(
                         text = "Profile",
                         fontFamily = PlusJakartaSansFamily,
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = BlueDarker,
                         modifier = Modifier.padding(start = 8.dp)
                     )

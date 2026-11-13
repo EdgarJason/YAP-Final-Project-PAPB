@@ -50,6 +50,46 @@ class AuthViewModel(
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
 
+    fun registerWithEmail(
+        email: String,
+        password: String,
+        onSuccess: () -> Unit
+    ) {
+        if (_uiState.value.isLoading) return
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isEmpty() || password.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Email dan password wajib diisi.") }
+            return
+        }
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+        viewModelScope.launch {
+            try {
+                val profile = authRepository.registerWithEmail(
+                    firstName = "User",
+                    lastName = "",
+                    email = trimmedEmail,
+                    password = password
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoggedIn = true,
+                        userProfile = profile,
+                        errorMessage = null
+                    )
+                }
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Gagal membuat akun."
+                    )
+                }
+            }
+        }
+    }
+
     fun loginWithEmail(
         email: String,
         password: String,
