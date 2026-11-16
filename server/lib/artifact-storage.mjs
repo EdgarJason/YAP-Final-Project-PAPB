@@ -6,7 +6,7 @@
 import { createHash } from 'node:crypto';
 import { strFromU8 } from 'fflate';
 import { inflateRawSync } from 'node:zlib';
-import { LIMITS, sha256Hex } from './build-service.mjs';
+import { ApiError, LIMITS, sha256Hex } from './build-service.mjs';
 
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 // Bounds for ZIP inspection — enforced on the central directory BEFORE
@@ -18,9 +18,7 @@ const MAX_ZIP_TOTAL_BYTES = 256 * 1024 * 1024; // 256 MiB uncompressed total
 const MAX_ZIP_NAME_BYTES = 4096;
 
 function fail(message) {
-  const error = new Error(message);
-  error.status = 400;
-  return error;
+  return new ApiError(400, message);
 }
 
 function readU16(buf, off) { return buf.readUInt16LE(off); }
@@ -163,19 +161,13 @@ export async function verifyArtifactObject({
   try {
     response = await fetchImpl(url, { headers });
   } catch (error) {
-    const wrapped = new Error(`Gagal mengambil artifact dari Storage: ${error.message}`);
-    wrapped.status = 502;
-    throw wrapped;
+    throw new ApiError(502, `Gagal mengambil artifact dari Storage: ${error.message}`);
   }
   if (response.status === 404) {
-    const error = new Error('Artifact tidak ditemukan di Storage.');
-    error.status = 404;
-    throw error;
+    throw new ApiError(404, 'Artifact tidak ditemukan di Storage.');
   }
   if (!response.ok) {
-    const error = new Error(`Storage mengembalikan HTTP ${response.status}.`);
-    error.status = 502;
-    throw error;
+    throw new ApiError(502, `Storage mengembalikan HTTP ${response.status}.`);
   }
   const reader = response.body?.getReader ? response.body.getReader() : null;
   const hash = createHash('sha256');
@@ -187,9 +179,7 @@ export async function verifyArtifactObject({
       if (done) break;
       size += value.length;
       if (size > maxBytes) {
-        const error = new Error('Artifact melebihi batas ukuran.');
-        error.status = 400;
-        throw error;
+        throw fail('Artifact melebihi batas ukuran.');
       }
       hash.update(value);
       chunks.push(Buffer.from(value));
@@ -198,9 +188,7 @@ export async function verifyArtifactObject({
     const buffer = Buffer.from(await response.arrayBuffer());
     size = buffer.length;
     if (size > maxBytes) {
-      const error = new Error('Artifact melebihi batas ukuran.');
-      error.status = 400;
-      throw error;
+      throw fail('Artifact melebihi batas ukuran.');
     }
     hash.update(buffer);
     chunks.push(buffer);

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { deflateSync, strToU8 } from 'fflate';
 import { inspectApkBytes, extractPreviewHtml } from '../lib/artifact-storage.mjs';
+import { createBuildApi } from '../lib/build-api.mjs';
 
 // Build a ZIP from entries [{name, data: Buffer|Uint8Array, method}]
 // writing local headers + central directory + EOCD by hand, so tests
@@ -145,4 +146,19 @@ test('missing manifest or dex is rejected; non-ZIP is rejected', () => {
   assert.throws(() => inspectApkBytes(makeZip([MANIFEST])), /classes\.dex/);
   assert.throws(() => inspectApkBytes(Buffer.from('not a zip at all')), /APK Android/);
   assert.throws(() => inspectApkBytes(Buffer.alloc(0)), /kosong/);
+});
+
+test('finalize returns actionable HTTP 400 for an APK missing dex instead of HTTP 500', async () => {
+  const artifact = makeZip([MANIFEST, { name: 'assets/index.html', data: strToU8(PREVIEW) }]);
+  const api = createBuildApi({
+    env: { YAP_ACCESS_TOKEN: 'a'.repeat(64), YAP_WORKER_TOKEN: 'w'.repeat(64) },
+    repository: { finalize: async () => { inspectApkBytes(artifact); throw new Error('must reject invalid APK'); } },
+  });
+  const result = await api.dispatch({
+    method: 'PUT', path: '/api/build/11111111-1111-4111-8111-111111111111/result',
+    headers: { authorization: 'Bearer ' + 'w'.repeat(64), 'x-yap-lease': '22222222-2222-4222-8222-222222222222' },
+    body: { artifactId: '33333333-3333-4333-8333-333333333333', operationId: '44444444-4444-4444-8444-444444444444' },
+  });
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /classes\.dex/);
 });

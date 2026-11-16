@@ -1,6 +1,6 @@
-# YAP cloud backend — Vercel + Supabase (scaffold)
+# YAP cloud backend — Vercel + Supabase
 
-Status: **scaffold di branch lokal `codex/vercel-supabase-plan-implementation` — belum di-deploy, belum ada proyek Vercel/Supabase, belum ada token.** Semua yang bisa diuji lokal sudah diuji; semua yang butuh proyek live ditandai di bawah dan TIDAK diklaim lolos.
+Status per 17 November 2026: gateway produksi `https://yap-gateway.vercel.app` sudah dideploy pada Vercel Hobby, Supabase sudah dimigrasi, dan Android `main` sudah memakai origin cloud serta signed download. Source integrasi `d166336` ada pada main kedua repo. Suite backend: 99 tes, 96 lulus, 3 opt-in dilewati; tes live terpisah telah membuktikan submit/claim/clarification/upload/finalize/preview/download dengan fixture dan TUS 32 MiB. Ini bukan bukti seluruh build Muse berhasil: tes aplikasi sungguhan sedang berlangsung, pemulihan VM/lease dan instalasi APK tetap harus diverifikasi. Bagian daftar staging di bawah adalah checklist historis, bukan status akses terkini.
 
 Revisi ini memuat perbaikan 9 penghalang + catatan kuota dari review scaffold (lihat `~/workspace/yap-worker/MIGRATION-REVIEW.md`): helper hash pgcrypto yang menyelesaikan schema extension, replay claim yang tidak memberi lease pengganti, deadline renew 30 menit, prepare POST, prepare replay yang menerbitkan ulang kredensial upload, kontrak TUS resmi (chunk 6 MiB, `x-signature`, metadata bucket/object), inspeksi ZIP lewat central directory, urutan cabang adapter biner, owner exact-match + namespace `admin`, dan advisory lock pada create.
 
@@ -22,7 +22,7 @@ Rancangan: `~/workspace/user/files/RANCANGAN-VERCEL-SUPABASE.md` (§6–§9, §1
 | `server/lib/build-repository-supabase.mjs` | Repository Supabase via REST/RPC (tanpa koneksi Postgres langsung). |
 | `server/lib/build-api.mjs` | Router v2 tanpa framework: capabilities, signal, submit/status/answer/download/preview, claim/resume, renew, question/message/metadata/fail, artifacts/prepare, result JSON (biner legacy → 426). |
 | `server/lib/vercel-adapter.mjs` | Adapter Node/Vercel → router; pemilihan backend dari env; batas body per route. |
-| `server/api/capabilities.mjs`, `server/api/build/...`, `server/api/worker/resume.mjs` | Handler Vercel tipis (satu baris delegasi per file). |
+| `server/api/gateway.mjs`, `server/vercel.json` | Satu dispatcher v2 dengan rewrites; bersama `api/generate.mjs` menjadi dua Function agar sesuai deployment Hobby. |
 | `server/supabase/migrations/0001_init.sql` | Tabel `build_jobs`, `build_questions`, `build_artifacts`, `build_events`, `worker_slots`, `usage_buckets`, `build_operations`; index; RLS (anon/authenticated ditolak). |
 | `server/supabase/migrations/0002_rpc.sql` | RPC transaksi: create, signal, claim, answer, question, message, metadata, fail, renew, prepare, finalize. |
 | `server/supabase/migrations/0003_storage.sql` | Bucket privat `yap-artifacts` (batas 32 MiB), kebijakan Storage. |
@@ -78,7 +78,9 @@ Variabel yang bisa diubah: `PG_VERSION` untuk skrip setup; `YAP_TEST_PGHOST`,
 `YAP_TEST_PGPORT`, `YAP_TEST_PGUSER` untuk tes. Semua koneksi loopback lokal,
 tanpa kredensial proyek Supabase user.
 
-## Yang BELUM bisa diuji tanpa proyek Supabase/Vercel live
+## Checklist staging historis dan batas pengujian
+
+Migrasi Supabase nyata, routing Vercel, signed upload/download, dan TUS 32 MiB pada daftar berikut sudah diuji dengan fixture pada 16 November. Concurrency lintas instance, rate limit per menit, budget/retensi, signing vault, dan ketahanan worker tetap perlu pemeriksaan tersendiri. Untuk build sungguhan, periksa isi APK akhir dan instalasi: tanda tangan valid saja tidak cukup. Lihat `MUSE-APK.md` untuk kontrak worker yang berlaku.
 
 1. **Migrasi SQL terhadap Supabase nyata.** Migrasi sudah diuji terhadap PostgreSQL 16 lokal nyata pada dua layout pgcrypto (`public` dan `extensions`) — termasuk claim/replay/renew/kuota/RLS — tapi belum pernah dijalankan di proyek Supabase user (versi Postgres dan perilaku Storage Supabase bisa berbeda). Jalankan 0001→0002→0003 di SQL Editor staging, lalu periksa tidak ada error dan RPC `yap_signal`/`yap_claim_job` merespons.
 2. **Alur Storage nyata.** Klien TUS sudah diuji terhadap endpoint TUS lokal yang merekam request (chunk 6 MiB, `x-signature`, metadata, resume, 32 MiB), dan bentuk respons signed upload URL REST sudah diverifikasi dari dokumentasi + SDK Supabase — tapi signed upload URL, TUS, dan signed download URL belum pernah melawan Storage Supabase nyata, dan verifikasi outbound 32 MiB di Vercel (timeout/durasi function) belum diuji. Uji dengan fixture APK 32 MiB di staging.

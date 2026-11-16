@@ -4,6 +4,18 @@ Tombol panah **Kirim** mengirim tugas ke gateway dan mengecek hasil setiap lima 
 
 ## Menjalankan gateway
 
+### Cloud Vercel + Supabase (protokol v2)
+
+Origin bawaan Android adalah `https://yap-gateway.vercel.app`. Klien membuat identitas guest otomatis; pengguna tidak memasukkan token worker. Vercel hanya melayani JSON, Postgres menyimpan antrean/lease, dan APK berpindah langsung melalui bucket privat Supabase Storage. Deployment memakai `api/gateway.mjs` dengan rewrites di `vercel.json`, serta `api/generate.mjs` untuk jalur lama. Lihat [kontrak cloud](supabase/README.md).
+
+Untuk cloud gunakan **`muse/worker-v2.sh`**, bukan `worker.sh`. Alurnya `claim` → build/verifikasi → `prepare ID LEASE FILE` → `upload ID FILE` → `finalize ID LEASE FILE APP_NAME`. Mutasi selain claim memerlukan lease aktif; renew berkala dibatasi deadline attempt 30 menit. Upload standar menggunakan signed PUT; TUS menggunakan `/storage/v1/upload/resumable/sign`. Jangan mengirim Bearer gateway ke host Storage. Android meminta `/api/build/{id}/download`, kemudian mengunduh signed URL lewat koneksi terpisah dan memverifikasi ukuran/SHA-256.
+
+Sebelum prepare, periksa **APK akhir yang sudah ditandatangani**: `AndroidManifest.xml`, `classes.dex`, aset yang diminta, label, ikon, serta tanda tangan. `apksigner verify` saja tidak membuktikan aplikasi dapat dipasang. Untuk wrapper WebView, jalankan javac → d8 → sertakan classes.dex dalam APK → zipalign → sign, lalu uji instalasi dan peluncuran di emulator/perangkat bila tersedia. HTML yang berfungsi dalam Playwright bukan bukti wrapper Android valid. Gateway menolak APK tanpa classes.dex saat finalize. Jangan menandai ready atau mengganti APK dengan hasil contoh jika instalasi gagal.
+
+Hook enabled tidak menjamin polling terus hidup setelah VM restart. Periksa waktu poll terakhir, worker aktif, lease, dan recovery state. Lease/prepare dari attempt berbeda tidak boleh dicampur. Setelah restart gunakan claim resmi; jika perlu prepare/upload baru di bawah lease baru. Antrean bertahan di Postgres, tetapi proses dan toolchain VM harus diperiksa ulang. Tidak ada jaminan SLA worker Muse.
+
+### Gateway disk lokal (protokol lama)
+
 Build Android terbaru otomatis memakai gateway YAP bawaan dan membuat identitas acak yang disimpan terenkripsi pada instalasi pertama. Aktifkan `YAP_PUBLIC_BUILDS=1` untuk menerima pengguna baru langsung tanpa konfigurasi manual. Identitas tersebut hanya dapat mengakses tugas milik instalasi itu. Token worker tetap diperlukan untuk klaim, pertanyaan, dan unggah APK. Pengaturan gateway khusus dan token pengelola tetap didukung. Gateway dan hook Muse perlu aktif dan dapat dijangkau internet.
 
 Jalankan `npm start` dari folder `server`. Isi `YAP_ACCESS_TOKEN` dan `YAP_WORKER_TOKEN` dengan dua token acak berbeda, masing-masing minimal 32 karakter, melalui `.env` atau secret pada host. Masukkan URL dasar HTTPS dan token Android di **Pengaturan AI**. Simpan token worker hanya di pengaturan konektor atau secret worker Muse. Jalur APK ini menggunakan hook Muse AI.
@@ -19,6 +31,8 @@ Gateway dan Muse menangani build di luar proses Android. YAP menyimpan tugas ter
 Ganti `BASE` dengan URL HTTPS gateway yang sudah aktif. Pakai interval 30 detik yang sudah diuji. Ambil `GET BASE/api/build/signal`. Saat ada tugas, respons publik memuat `pending: true` dan `wakeId` yang opak. Bangunkan sesi untuk setiap `wakeId` baru dan simpan ID tersebut setelah berhasil membangunkan sesi. Reset penanda saat `pending: false`. Jawaban pengguna memberi ID sinyal baru sehingga hook bisa melanjutkan walau tidak sempat melihat sinyal false. Abaikan respons selain HTTP 200 atau format yang tidak valid.
 
 ### Skrip yang dipakai di Secure VM
+
+Contoh `worker.sh` dan unggahan biner di bawah **hanya untuk gateway disk lama**. Pada cloud gunakan urutan v2 di atas; `/result` cloud menerima JSON, bukan APK biner.
 
 Clone atau update repo YAP di VM. Jalankan `bash server/muse/check-signal.sh --json` dari hook, dengan `YAP_BASE_URL` sebagai origin HTTPS gateway. Pertahankan mekanisme wake yang sudah terbukti di hook Muse. Skrip sinyal tidak membutuhkan token. Jika skrip keluar dengan status selain nol, jangan membangunkan sesi.
 
