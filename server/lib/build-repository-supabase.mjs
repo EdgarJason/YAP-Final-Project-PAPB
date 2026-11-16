@@ -7,7 +7,7 @@
 // single-worker slot, and idempotency via build_operations.
 // Every RPC returns a JSON envelope {ok, ...} or {ok:false, status, code,
 // message}; transport errors are mapped to ApiError here.
-import { ApiError, notFound, ADMIN_OWNER_HASH } from './build-service.mjs';
+import { ApiError, notFound, ADMIN_OWNER_HASH, validatePreviewHtml } from './build-service.mjs';
 import { verifyArtifactObject } from './artifact-storage.mjs';
 
 const BUCKET = 'yap-artifacts';
@@ -252,13 +252,16 @@ export function createSupabaseRepository({
         expectedSha256: artifact.expected_sha256,
         fetchImpl,
       });
-      if (previewHtml && verified.previewHtml && previewHtml !== verified.previewHtml) {
+      if (previewHtml != null && previewHtml !== verified.previewHtml) {
         throw new ApiError(400, 'Preview tidak cocok dengan assets/index.html di APK.');
       }
+      // Auto-extracted HTML must meet the encoded response limit too;
+      // checking only worker-provided HTML leaves an escaping bypass.
+      const resolvedPreview = validatePreviewHtml(previewHtml ?? verified.previewHtml ?? null);
       // 3. RPC re-checks the lease and publishes ready atomically.
       const data = unwrap(await rpc('yap_finalize_job', {
         p_job_id: jobId, p_lease_id: lease, p_operation_id: operationId,
-        p_artifact_id: artifactId, p_preview_html: previewHtml ?? verified.previewHtml ?? null,
+        p_artifact_id: artifactId, p_preview_html: resolvedPreview,
         p_verified_size: verified.size, p_verified_sha256: verified.sha256,
         p_verification: verification ?? null,
       }), 'yap_finalize_job');

@@ -261,3 +261,30 @@ test('signed download includes the Storage API prefix and never accepts a foreig
 function randomUUID() {
   return '123e4567-e89b-12d3-a456-426614174001';
 }
+
+test('finalize cannot publish invented HTML or an oversized escaped auto-preview', async () => {
+  for (const mode of ['invented', 'escaped']) {
+    const html = mode === 'escaped' ? '"'.repeat(1_600_000) : null;
+    const apk = Buffer.from(zipSync({
+      'AndroidManifest.xml': strToU8('<manifest/>'),
+      'classes.dex': strToU8('dex\n035\0'),
+      ...(html === null ? {} : { 'assets/index.html': strToU8(html) }),
+    }));
+    let finalized = false;
+    const fetchImpl = async url => {
+      if (url.includes('/rest/v1/build_artifacts')) return jsonResponse(200, [{
+        id: UUID, job_id: UUID, lease_id: UUID, object_path: 'jobs/app.apk',
+        expected_size: apk.length, expected_sha256: sha256Hex(apk), status: 'pending',
+      }]);
+      if (url.includes('/storage/v1/object/authenticated/')) return new Response(apk);
+      finalized = true;
+      throw new Error('Invalid preview must never reach publication');
+    };
+    const repo = createSupabaseRepository({ supabaseUrl: URL, serviceRoleKey: KEY, fetchImpl });
+    await assert.rejects(repo.finalize({
+      jobId: UUID, lease: UUID, operationId: randomUUID(), artifactId: UUID,
+      previewHtml: mode === 'invented' ? '<html>invented</html>' : null,
+    }), error => error.status === 400);
+    assert.equal(finalized, false);
+  }
+});
