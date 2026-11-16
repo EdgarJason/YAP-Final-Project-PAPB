@@ -5,6 +5,30 @@
 
 create extension if not exists pgcrypto;
 
+-- SHA-256 helper bound to wherever pgcrypto actually lives. Supabase
+-- installs extensions in `extensions`, vanilla Postgres in `public`;
+-- SECURITY DEFINER functions below run with search_path public,pg_temp,
+-- so digest() must never be called unqualified. The extension schema is
+-- baked into this wrapper's body at migration time; the wrapper is
+-- immutable and schema-qualified calls need no search_path widening.
+do $$
+declare
+  v_schema text;
+begin
+  select n.nspname into v_schema
+    from pg_extension e
+    join pg_namespace n on n.oid = e.extnamespace
+   where e.extname = 'pgcrypto';
+  if v_schema is null then
+    raise exception 'pgcrypto extension not found';
+  end if;
+  execute format(
+    'create or replace function public.yap_sha256_hex(p_text text) '
+    'returns text language sql immutable as $f$ '
+    'select encode(%I.digest(p_text, ''sha256''), ''hex'') $f$',
+    v_schema);
+end $$;
+
 -- ---------------------------------------------------------------- build_jobs
 create table if not exists public.build_jobs (
   id uuid primary key,

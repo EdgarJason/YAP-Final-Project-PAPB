@@ -114,10 +114,6 @@ export function createVercelHandler({ env = process.env } = {}) {
       if (error instanceof ApiError) return replyJson(res, error.status, { error: error.message });
       return replyJson(res, 503, { error: error.message || 'Backend belum dikonfigurasi.' });
     }
-    if (result.status === 204 || result.body === null || result.body === undefined) {
-      res.writeHead(result.status || 204, { 'Cache-Control': 'no-store' });
-      return res.end();
-    }
     if (result.binaryFile) {
       const { path: filePath, size, fileName, contentType: type } = result.binaryFile;
       res.writeHead(200, {
@@ -128,6 +124,10 @@ export function createVercelHandler({ env = process.env } = {}) {
       });
       await pipeline(createReadStream(filePath), res);
       return;
+    }
+    if (result.status === 204 || result.body === null || result.body === undefined) {
+      res.writeHead(result.status || 204, { 'Cache-Control': 'no-store' });
+      return res.end();
     }
     return replyJson(res, result.status, result.body);
   };

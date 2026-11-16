@@ -10,7 +10,7 @@
 -- ------------------------------------------------------------ helpers
 create or replace function public.yap_op_hash(p_text text)
 returns text language sql immutable as $$
-  select encode(digest(p_text, 'sha256'), 'hex');
+  select public.yap_sha256_hex(p_text);
 $$;
 
 create or replace function public.yap_job_json(p_job_id uuid)
@@ -66,9 +66,13 @@ begin
      or char_length(p_context) > 12000 or p_response_mode not in ('apk', 'chat') then
     return public.yap_fail_envelope(400, 'invalid_input', 'Payload tidak valid.');
   end if;
-  v_hash := encode(digest(
+  -- Serialize creates so the queue/daily limits below cannot race:
+  -- COUNT then INSERT is not atomic on its own. One fixed advisory key
+  -- for all creates; released at transaction end (each RPC = 1 txn).
+  perform pg_advisory_xact_lock(20261116);
+  v_hash := public.yap_sha256_hex(
     p_id::text || '|' || coalesce(p_owner_hash, '') || '|' || p_prompt || '|' ||
-    coalesce(p_context, '') || '|' || p_response_mode, 'sha256'), 'hex');
+    coalesce(p_context, '') || '|' || p_response_mode);
 
   select * into v_existing from public.build_jobs where id = p_id;
   if found then
@@ -127,6 +131,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_op public.build_operations;
   v_hash text;
+  v_job public.build_jobs;
   v_slot_job uuid;
   v_slot_lease uuid;
   v_slot_active boolean;
@@ -143,9 +148,21 @@ begin
     if v_op.request_hash <> v_hash then
       return public.yap_fail_envelope(409, 'operation_conflict', 'ID operasi sudah dipakai dengan payload berbeda.');
     end if;
-    return jsonb_build_object(
-      'ok', true, 'job', public.yap_job_json((v_op.result ->> 'job_id')::uuid),
-      'replayed', true);
+    if v_op.worker_id is distinct from p_worker_id then
+      return public.yap_fail_envelope(409, 'operation_conflict', 'ID operasi sudah dipakai dengan payload berbeda.');
+    end if;
+    -- Replay must never hand out a replacement lease: only return the
+    -- job when the lease recorded for this operation is still the
+    -- active lease of a building job. Otherwise the old attempt is
+    -- dead (superseded, expired, or terminal) and gets job null.
+    select * into v_job from public.build_jobs where id = (v_op.result ->> 'job_id')::uuid;
+    if found and v_job.status = 'building'
+       and v_job.lease_id = (v_op.result ->> 'lease')::uuid
+       and v_job.lease_expires_at > now() then
+      return jsonb_build_object(
+        'ok', true, 'job', public.yap_job_json(v_job.id), 'replayed', true);
+    end if;
+    return jsonb_build_object('ok', true, 'job', null, 'replayed', true);
   end if;
 
   -- Single-worker slot, locked in the same transaction as the claim.
@@ -209,7 +226,9 @@ declare
   v_q public.build_questions;
 begin
   select * into v_job from public.build_jobs where id = p_job_id for update;
-  if not found or v_job.owner_hash <> p_owner_hash then
+  -- Admin ('admin' owner namespace) may act on any job, as in the v1
+  -- handler; every other caller must match the job owner exactly.
+  if not found or (v_job.owner_hash <> p_owner_hash and p_owner_hash <> 'admin') then
     return public.yap_fail_envelope(404, 'not_found', 'Tugas tidak ditemukan.');
   end if;
   select * into v_q from public.build_questions where id = p_question_id and job_id = p_job_id;
@@ -416,6 +435,7 @@ returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_job public.build_jobs;
+  v_deadline timestamptz;
 begin
   begin
     v_job := public.yap_require_lease(p_job_id, p_lease_id);
@@ -424,8 +444,14 @@ begin
   when sqlstate 'P0003' then
     return public.yap_fail_envelope(409, 'lease_expired', 'Klaim tugas tidak aktif.');
   end;
+  -- Attempt deadline: attempt_started_at + 30 minutes. A renew may
+  -- never push the lease past it, and renewing after it is rejected.
+  v_deadline := coalesce(v_job.attempt_started_at, now()) + interval '30 minutes';
+  if now() >= v_deadline then
+    return public.yap_fail_envelope(409, 'attempt_expired', 'Batas attempt 30 menit tercapai.');
+  end if;
   update public.build_jobs
-     set lease_expires_at = now() + interval '10 minutes', version = version + 1
+     set lease_expires_at = least(now() + interval '10 minutes', v_deadline), version = version + 1
    where id = p_job_id
   returning lease_expires_at into v_job.lease_expires_at;
   return jsonb_build_object(

@@ -94,7 +94,9 @@ test('claim replays the stored lease and prepare picks TUS for large APKs', asyn
       });
     }
     if (url.includes('/storage/v1/object/upload/sign/')) {
-      return jsonResponse(200, { url: '/storage/v1/object/upload/sign/yap-artifacts/jobs/x?token=tok', token: 'tok' });
+      // Real Storage REST shape: {url} relative to /storage/v1, token
+      // embedded in the query string — NO separate token field.
+      return jsonResponse(200, { url: '/object/upload/sign/yap-artifacts/jobs/x?token=tok' });
     }
     throw new Error(`unexpected URL ${url}`);
   };
@@ -109,6 +111,88 @@ test('claim replays the stored lease and prepare picks TUS for large APKs', asyn
   assert.equal(prepared.artifact.method, 'tus');
   assert.match(prepared.artifact.uploadUrl, /upload\/resumable$/);
   assert.equal(prepared.artifact.uploadToken, 'tok');
+  assert.equal(prepared.artifact.objectPath, `jobs/${UUID}/${UUID}/${UUID}/app.apk`);
+});
+
+test('prepare replay re-issues upload credentials for the same object path', async () => {
+  const future = new Date(Date.now() + 10 * 60_000).toISOString();
+  const artifact = {
+    id: UUID, job_id: UUID, lease_id: UUID, generation_id: UUID, kind: 'apk',
+    object_path: `jobs/${UUID}/${UUID}/${UUID}/app.apk`, expected_size: 1000,
+    expected_sha256: 'b'.repeat(64), status: 'pending',
+  };
+  const fetchImpl = async (url, options) => {
+    if (url.includes('/rpc/yap_prepare_artifact')) {
+      return jsonResponse(200, { ok: true, artifact, replayed: true });
+    }
+    if (url.includes('/rest/v1/build_jobs')) {
+      return jsonResponse(200, [{ ...JOB_ROW, status: 'building', lease_id: UUID, lease_expires_at: future }]);
+    }
+    if (url.includes('/storage/v1/object/upload/sign/')) {
+      return jsonResponse(200, { url: '/object/upload/sign/yap-artifacts/jobs/x?token=tok2' });
+    }
+    throw new Error(`unexpected URL ${url}`);
+  };
+  const repo = createSupabaseRepository({ supabaseUrl: URL, serviceRoleKey: KEY, fetchImpl });
+  const replayed = await repo.prepareArtifact({
+    jobId: UUID, lease: UUID, operationId: randomUUID(),
+    kind: 'apk', size: 1000, sha256: 'b'.repeat(64),
+  });
+  assert.equal(replayed.replayed, true);
+  assert.equal(replayed.artifact.id, UUID);
+  assert.equal(replayed.artifact.objectPath, artifact.object_path);
+  assert.equal(replayed.artifact.uploadToken, 'tok2');
+  assert.match(replayed.artifact.uploadUrl, /\/storage\/v1\/object\/upload\/sign\//);
+});
+
+test('prepare replay refuses a verified artifact or a stale lease', async () => {
+  const past = new Date(Date.now() - 60_000).toISOString();
+  const makeFetch = jobRow => async url => {
+    if (url.includes('/rpc/yap_prepare_artifact')) {
+      return jsonResponse(200, {
+        ok: true,
+        artifact: {
+          id: UUID, job_id: UUID, lease_id: UUID, generation_id: UUID, kind: 'apk',
+          object_path: `jobs/${UUID}/${UUID}/${UUID}/app.apk`, expected_size: 1000,
+          expected_sha256: 'b'.repeat(64), status: jobRow.status,
+        },
+        replayed: true,
+      });
+    }
+    if (url.includes('/rest/v1/build_jobs')) return jsonResponse(200, [jobRow]);
+    throw new Error(`unexpected URL ${url}`);
+  };
+  const repoVerified2 = createSupabaseRepository({
+    supabaseUrl: URL, serviceRoleKey: KEY,
+    fetchImpl: async url => {
+      if (url.includes('/rpc/yap_prepare_artifact')) {
+        return jsonResponse(200, {
+          ok: true,
+          artifact: {
+            id: UUID, job_id: UUID, lease_id: UUID, generation_id: UUID, kind: 'apk',
+            object_path: `jobs/${UUID}/${UUID}/${UUID}/app.apk`, expected_size: 1000,
+            expected_sha256: 'b'.repeat(64), status: 'verified',
+          },
+          replayed: true,
+        });
+      }
+      if (url.includes('/rest/v1/build_jobs')) {
+        return jsonResponse(200, [{ ...JOB_ROW, status: 'building', lease_id: UUID, lease_expires_at: new Date(Date.now() + 600_000).toISOString() }]);
+      }
+      throw new Error(`unexpected URL ${url}`);
+    },
+  });
+  await assert.rejects(
+    repoVerified2.prepareArtifact({ jobId: UUID, lease: UUID, operationId: randomUUID(), kind: 'apk', size: 1000, sha256: 'b'.repeat(64) }),
+    error => error.status === 409,
+  );
+  const repoStale = createSupabaseRepository({
+    supabaseUrl: URL, serviceRoleKey: KEY, fetchImpl: makeFetch({ ...JOB_ROW, status: 'building', lease_id: UUID, lease_expires_at: past }),
+  });
+  await assert.rejects(
+    repoStale.prepareArtifact({ jobId: UUID, lease: UUID, operationId: randomUUID(), kind: 'apk', size: 1000, sha256: 'b'.repeat(64) }),
+    error => error.status === 409 && error.code === 'lease_expired',
+  );
 });
 
 test('finalize verifies bytes outbound before calling the finalize RPC', async () => {

@@ -32,6 +32,12 @@ export const LIMITS = {
 export const STATUSES = ['queued', 'building', 'awaiting_answer', 'responded', 'ready', 'failed'];
 export const RESPONSE_MODES = ['apk', 'chat'];
 
+// Immutable admin owner namespace. Admin (YAP_ACCESS_TOKEN) jobs are
+// owned by this fixed, non-hex value — never null, so owner_hash NOT
+// NULL is satisfied and a guest hash (64 hex chars) can never collide
+// with it. loadOwnedJob requires an exact owner match for every guest.
+export const ADMIN_OWNER_HASH = 'admin';
+
 export class ApiError extends Error {
   constructor(status, message, code = undefined) {
     super(message);

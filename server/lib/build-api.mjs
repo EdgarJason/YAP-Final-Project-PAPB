@@ -12,6 +12,7 @@ import {
   validateSubmit, validateAnswer, validateQuestion, validateMessage, validateAppName,
   validateArtifactDescriptor, validateResult, validateFail, requireUuid,
   canonicalRequestHash, ownerHashFromGuestToken, wakeIdFor, publicJob, checkGatewayConfig,
+  ADMIN_OWNER_HASH,
 } from './build-service.mjs';
 const UUID_SEGMENT = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 
@@ -38,13 +39,16 @@ export function createBuildApi({ repository, env = process.env, now = Date.now }
       const ownerHash = ownerHashFromGuestToken(authorization);
       if (ownerHash) return { ownerHash, admin: false };
     }
-    if (matches(authorization, accessToken)) return { ownerHash: null, admin: true };
+    if (matches(authorization, accessToken)) return { ownerHash: ADMIN_OWNER_HASH, admin: true };
     throw unauthorized();
   };
   const loadOwnedJob = async (id, ownerHash, admin) => {
     const job = await repository.get(id);
     if (!job) throw notFound();
-    if (!admin && ownerHash && job.ownerHash && job.ownerHash !== ownerHash) throw notFound();
+    // Guests must match the job owner exactly; an empty owner on either
+    // side never grants access (a job with ownerHash null is unreadable
+    // by guests, and a guest without a token never reaches here).
+    if (!admin && (!ownerHash || !job.ownerHash || job.ownerHash !== ownerHash)) throw notFound();
     return job;
   };
   const leaseHeader = headers => headers['x-yap-lease'] || headers['X-YAP-Lease'] || '';
@@ -95,7 +99,13 @@ export function createBuildApi({ repository, env = process.env, now = Date.now }
         ? requireUuid(body.claimRequestId, 'ID permintaan klaim')
         : randomUUID();
       const { job, replayed } = await repository.claim({ claimRequestId });
-      if (!job) return { status: 204, body: null };
+      if (!job) {
+        // A replayed claim whose lease is dead (superseded, expired, or
+        // terminal) is NOT an empty queue: say so explicitly so the
+        // worker starts a fresh claim instead of waiting forever.
+        if (replayed) return { status: 200, body: { replayed: true, job: null, claimRequestId } };
+        return { status: 204, body: null };
+      }
       return {
         status: 200,
         body: {
@@ -125,7 +135,7 @@ export function createBuildApi({ repository, env = process.env, now = Date.now }
     if (method === 'POST' && action === 'answer') {
       const { ownerHash, admin } = requireUser(headers);
       const data = validateAnswer(body);
-      const { job } = await repository.answer({ jobId: id, ownerHash: admin ? null : ownerHash, ...data });
+      const { job } = await repository.answer({ jobId: id, ownerHash, ...data });
       return { status: 200, body: publicJob(job) };
     }
 
@@ -133,7 +143,7 @@ export function createBuildApi({ repository, env = process.env, now = Date.now }
       const { ownerHash, admin } = requireUser(headers);
       const job = await loadOwnedJob(id, ownerHash, admin);
       if (job.status !== 'ready') throw notFound('Tugas belum siap.');
-      const signed = await repository.createSignedDownloadUrl({ jobId: id, ownerHash: admin ? null : ownerHash });
+      const signed = await repository.createSignedDownloadUrl({ jobId: id, ownerHash });
       if (!signed) {
         // Filesystem backend: no signed Storage URL — use the legacy /apk route.
         throw new ApiError(501, 'Download sementara tidak tersedia pada backend filesystem; gunakan /apk.');

@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import {
-  LIMITS, ApiError, notFound, conflict, canonicalRequestHash, sha256Hex,
+  LIMITS, ApiError, notFound, conflict, canonicalRequestHash, sha256Hex, ADMIN_OWNER_HASH,
 } from './build-service.mjs';
 import { inspectApkBytes, extractPreviewHtml, artifactObjectPath } from './artifact-storage.mjs';
 
@@ -123,7 +123,11 @@ export function createFilesystemRepository({ directory, now = Date.now } = {}) {
     return job;
   };
   const requireOwner = (job, ownerHash) => {
-    if (ownerHash && job.ownerHash && job.ownerHash !== ownerHash) throw notFound();
+    // Admin (ADMIN_OWNER_HASH) bypasses owner checks, as in the v1
+    // handler; every other caller must match the job owner exactly,
+    // and an empty owner on either side never grants access.
+    if (ownerHash === ADMIN_OWNER_HASH) return;
+    if (!ownerHash || !job.ownerHash || job.ownerHash !== ownerHash) throw notFound();
   };
   const requireLease = (job, lease, at) => {
     if (job.status !== 'building' || !leaseActive(job, at) || job.lease !== lease) {
@@ -181,7 +185,10 @@ export function createFilesystemRepository({ directory, now = Date.now } = {}) {
         const stored = checkOperation(claimRequestId, opHash(['claim', workerId]));
         if (stored) {
           const job = read(stored.result.jobId);
-          return job && job.status === 'building' && job.lease === stored.result.lease
+          // Replay only returns the job when the recorded lease is still
+          // the active lease; a superseded/expired/terminal claim gets
+          // job null (never a replacement lease).
+          return job && job.status === 'building' && job.lease === stored.result.lease && leaseActive(job, at)
             ? { job, replayed: true }
             : { job: null, replayed: true };
         }
@@ -323,7 +330,13 @@ export function createFilesystemRepository({ directory, now = Date.now } = {}) {
         const at = now();
         const job = requireJob(jobId);
         requireLease(job, lease, at);
-        job.leaseExpiresAt = at + LIMITS.leaseMs;
+        // Attempt deadline: attempt_started_at + 30 minutes. A renew may
+        // never push the lease past it, and renewing after it is rejected.
+        const deadline = (job.attemptStartedAt ?? at) + LIMITS.maxAttemptMs;
+        if (at >= deadline) {
+          throw conflict('Batas attempt 30 menit tercapai.', 'attempt_expired');
+        }
+        job.leaseExpiresAt = Math.min(at + LIMITS.leaseMs, deadline);
         job.version += 1;
         job.updatedAt = new Date(at).toISOString();
         const saved = persist(job);
@@ -338,7 +351,14 @@ export function createFilesystemRepository({ directory, now = Date.now } = {}) {
         if (stored) {
           const artifacts = readArtifacts(jobId);
           const artifact = artifacts.find(entry => entry.id === stored.result.artifactId);
-          return { artifact, replayed: true };
+          // Replay returns exactly the first-request shape (local method,
+          // no signed URL) for the same immutable object path.
+          return {
+            artifact: artifact
+              ? { ...artifact, uploadUrl: null, uploadToken: null, method: 'local', expiresAt: null }
+              : artifact,
+            replayed: true,
+          };
         }
         const job = requireJob(jobId);
         requireLease(job, lease, at);

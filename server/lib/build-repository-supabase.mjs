@@ -7,7 +7,7 @@
 // single-worker slot, and idempotency via build_operations.
 // Every RPC returns a JSON envelope {ok, ...} or {ok:false, status, code,
 // message}; transport errors are mapped to ApiError here.
-import { ApiError, notFound } from './build-service.mjs';
+import { ApiError, notFound, ADMIN_OWNER_HASH } from './build-service.mjs';
 import { verifyArtifactObject } from './artifact-storage.mjs';
 
 const BUCKET = 'yap-artifacts';
@@ -98,6 +98,37 @@ export function createSupabaseRepository({
     return Array.isArray(rows) && rows[0] ? rows[0] : null;
   }
 
+  // Mint upload credentials for one registered artifact. The Storage
+  // REST response for a signed upload URL is
+  //   { "url": "/object/upload/sign/<bucket>/<path>?token=..." }
+  // — a path relative to /storage/v1, with the token embedded in the
+  // query string (there is NO separate token field). The token is
+  // extracted from the URL and handed to the worker as the x-signature
+  // header for TUS; standard uploads PUT straight to the full signed
+  // URL. The object path is server-chosen and never worker-supplied.
+  async function issueUploadCredentials(artifact, kind, size) {
+    const signed = await call(`/storage/v1/object/upload/sign/${bucket}/${artifact.object_path}`, { body: {} });
+    const relative = typeof signed?.url === 'string' ? signed.url : '';
+    if (!relative.startsWith('/')) throw new ApiError(502, 'Storage tidak mengembalikan signed upload URL.');
+    // The URL is relative to /storage/v1; tolerate a response that
+    // already carries the prefix instead of doubling it.
+    const fullUrl = relative.startsWith('/storage/v1/')
+      ? `${base}${relative}`
+      : `${base}/storage/v1${relative}`;
+    const token = new URL(fullUrl).searchParams.get('token');
+    if (!token) throw new ApiError(502, 'Storage tidak mengembalikan token upload.');
+    const useTus = kind === 'apk' && size > 6 * 1024 * 1024;
+    return {
+      ...artifact,
+      bucket,
+      objectPath: artifact.object_path,
+      uploadUrl: useTus ? `${base}/storage/v1/upload/resumable` : fullUrl,
+      uploadToken: token,
+      method: useTus ? 'tus' : 'standard',
+      expiresAt: new Date(now() + 2 * 60 * 60_000).toISOString(),
+    };
+  }
+
   return {
     kind: 'supabase',
     bucket,
@@ -178,24 +209,26 @@ export function createSupabaseRepository({
         p_kind: kind, p_size: size, p_sha256: sha256,
       }), 'yap_prepare_artifact');
       const artifact = data.artifact;
-      if (data.replayed) return { artifact, replayed: true };
-      // Signed upload URL (2h) for this exact object path — never a
-      // worker-supplied bucket/path. TUS (>6 MB) uses the same token against
-      // the resumable endpoint; standard upload PUTs to the signed URL.
-      const signed = await call(`/storage/v1/object/upload/sign/${bucket}/${artifact.object_path}`, { body: {} });
-      const useTus = kind === 'apk' && size > 6 * 1024 * 1024;
-      return {
-        artifact: {
-          ...artifact,
-          uploadUrl: useTus
-            ? `${base}/storage/v1/upload/resumable`
-            : `${base}${signed.url}`,
-          uploadToken: signed.token,
-          method: useTus ? 'tus' : 'standard',
-          expiresAt: new Date(now() + 2 * 60 * 60_000).toISOString(),
-        },
-        replayed: false,
-      };
+      if (data.replayed) {
+        // A replay must re-validate before re-issuing upload
+        // credentials for the same immutable object path: the job must
+        // still be building under this lease, and the artifact must
+        // still be pending. A verified artifact or a stale lease never
+        // gets permission to overwrite a result.
+        const job = await getJobRow(jobId);
+        const leaseOk = job && job.status === 'building' && job.lease_id === lease
+          && job.lease_expires_at && Date.parse(job.lease_expires_at) > now();
+        if (!leaseOk) throw new ApiError(409, 'Klaim tugas tidak aktif.', 'lease_expired');
+        if (!artifact || artifact.job_id !== jobId || artifact.lease_id !== lease) {
+          throw new ApiError(409, 'Artifact tidak terdaftar untuk klaim ini.', 'artifact_mismatch');
+        }
+        if (artifact.status !== 'pending') {
+          throw new ApiError(409, 'Artifact sudah terverifikasi; tidak dapat diunggah ulang.', 'artifact_unverified');
+        }
+      }
+      // First request and replay share exactly one shape and one
+      // credential-issuing path (same objectPath, same fields).
+      return { artifact: await issueUploadCredentials(artifact, kind, size), replayed: data.replayed === true };
     },
 
     /** Direct-to-Storage upload is the worker's job; the server never accepts APK bytes. */
@@ -235,7 +268,8 @@ export function createSupabaseRepository({
     async createSignedDownloadUrl({ jobId, ownerHash }) {
       const job = await this.get(jobId);
       if (!job) throw notFound();
-      if (ownerHash && job.ownerHash && job.ownerHash !== ownerHash) throw notFound();
+      // Admin bypasses owner checks (v1 parity); guests need an exact match.
+      if (ownerHash !== ADMIN_OWNER_HASH && (!ownerHash || !job.ownerHash || job.ownerHash !== ownerHash)) throw notFound();
       if (job.status !== 'ready' || !job.resultArtifactId) return null;
       const rows = await call(`/rest/v1/build_artifacts?id=eq.${encodeURIComponent(job.resultArtifactId)}&select=object_path`, { method: 'GET', rawHeaders: headers() });
       const artifact = Array.isArray(rows) && rows[0] ? rows[0] : null;

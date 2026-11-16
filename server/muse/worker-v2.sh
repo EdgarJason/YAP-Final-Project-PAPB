@@ -12,7 +12,16 @@ set -euo pipefail
 : "${YAP_BASE_URL:?Set YAP_BASE_URL to the HTTPS gateway origin}"
 : "${YAP_WORKER_TOKEN:?Load YAP_WORKER_TOKEN from the worker secret store}"
 base="${YAP_BASE_URL%/}"
-[[ "$base" =~ ^https://[^/@?#[:space:]]+$ ]] || { echo 'YAP_BASE_URL must be an HTTPS origin' >&2; exit 2; }
+# Production origins must be HTTPS. Plain HTTP is accepted only on
+# loopback (127.0.0.1/localhost/[::1]) so the worker can be tested
+# against a local gateway; it must never be used for a real origin.
+if [[ "$base" =~ ^https://[^/@?#[:space:]]+$ ]]; then
+  :
+elif [[ "$base" =~ ^http://(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?$ ]]; then
+  :
+else
+  echo 'YAP_BASE_URL must be an HTTPS origin (loopback http://127.0.0.1 is test-only)' >&2; exit 2
+fi
 [[ "$YAP_WORKER_TOKEN" =~ ^[a-zA-Z0-9_-]{32,}$ ]] || { echo 'Worker token must be URL-safe' >&2; exit 2; }
 
 STATE_DIR="${YAP_WORKER_STATE_DIR:-$HOME/.local/state/yap-worker}"
@@ -76,6 +85,10 @@ cmd_claim() {
     exit 0 # empty queue: no output, like worker.sh v1
   fi
   [[ "$code" == 200 ]] || { echo "Claim failed: HTTP $code: $response" >&2; exit 1; }
+  if [[ "$(jq -r '.replayed // false' <<< "$response")" == true && -z "$(jq -r '.id // empty' <<< "$response")" ]]; then
+    echo 'Claim lama sudah tidak aktif (lease diganti, kedaluwarsa, atau tugas selesai); jalankan claim new.' >&2
+    exit 1
+  fi
   local job_id lease expires
   job_id="$(jq -r '.id' <<< "$response")"
   lease="$(jq -r '.lease' <<< "$response")"
@@ -124,7 +137,7 @@ cmd_prepare() { # prepare ID LEASE FILE [apk|source]
   op_id="$(new_uuid)"
   json="$(jq -cn --arg op "$op_id" --arg kind "$kind" --argjson size "$size" --arg sha "$sha" \
     '{operationId: $op, kind: $kind, size: $size, sha256: $sha}')"
-  response="$(request --request PUT --header "X-YAP-Lease: $lease" \
+  response="$(request --request POST --header "X-YAP-Lease: $lease" \
     --header 'Content-Type: application/json' --data-binary "$json" \
     "$base/api/build/$id/artifacts/prepare")"
   # Persist the artifact reservation (mode 600) for upload/finalize.
@@ -133,26 +146,40 @@ cmd_prepare() { # prepare ID LEASE FILE [apk|source]
   printf '%s\n' "$response"
 }
 
-tus_upload() { # tus_upload FILE UPLOAD_URL TOKEN — minimal TUS client (bash+curl)
-  local file="$1" upload_url="$2" token="$3"
-  local size chunk_size=5242880 offset=0 location
+tus_upload() { # tus_upload FILE UPLOAD_URL TOKEN BUCKET OBJECT_PATH CONTENT_TYPE
+  # Minimal TUS client (bash+curl) following the Supabase resumable
+  # upload contract: 6 MiB chunks, signed upload token in the
+  # x-signature header (never Authorization Bearer), metadata
+  # bucketName/objectName/contentType. Resumes from the server offset.
+  local file="$1" upload_url="$2" token="$3" bucket="$4" object_path="$5" content_type="${6:-application/octet-stream}"
+  local size chunk_size=6291456 offset=0 location
   size="$(stat -c %s "$file")"
+  local b64_bucket b64_object b64_type metadata
+  b64_bucket="$(printf '%s' "$bucket" | base64 -w0)"
+  b64_object="$(printf '%s' "$object_path" | base64 -w0)"
+  b64_type="$(printf '%s' "$content_type" | base64 -w0)"
+  metadata="bucketName $b64_bucket,objectName $b64_object,contentType $b64_type"
   # Create the resumable upload; server returns the upload URL in Location.
   local create_headers
   create_headers="$(curl --fail-with-body --silent --show-error --max-time 120 -D - -o /dev/null \
     --request POST "$upload_url" \
-    --header "Authorization: Bearer $token" \
+    --header "x-signature: $token" \
     --header 'Tus-Resumable: 1.0.0' \
     --header "Upload-Length: $size" \
-    --header 'Content-Type: application/offset+octet-stream' \
-    --header "Upload-Metadata: filename $(basename "$file" | base64 -w0)")"
+    --header "Upload-Metadata: $metadata")"
   location="$(grep -i '^location:' <<< "$create_headers" | tail -1 | tr -d '\r' | sed 's/^[Ll]ocation:[[:space:]]*//')"
   [[ -n "$location" ]] || { echo 'TUS create did not return a Location.' >&2; exit 1; }
+  # Location may be relative: resolve it against the resumable endpoint.
+  if [[ "$location" =~ ^/ ]]; then
+    location="$(sed -E 's#^(https?://[^/]+).*#\1#' <<< "$upload_url")$location"
+  elif [[ ! "$location" =~ ^https?:// ]]; then
+    location="${upload_url%/*}/$location"
+  fi
   # Resume from the server-reported offset if a previous attempt stalled.
   local head_offset
   head_offset="$(curl --fail-with-body --silent --show-error --max-time 60 -D - -o /dev/null \
     --request HEAD "$location" \
-    --header "Authorization: Bearer $token" \
+    --header "x-signature: $token" \
     --header 'Tus-Resumable: 1.0.0' | grep -i '^upload-offset:' | tail -1 | awk '{print $2}' | tr -d '\r')"
   [[ "$head_offset" =~ ^[0-9]+$ ]] && offset="$head_offset"
   while (( offset < size )); do
@@ -160,11 +187,13 @@ tus_upload() { # tus_upload FILE UPLOAD_URL TOKEN — minimal TUS client (bash+c
     local take=$(( remaining < chunk_size ? remaining : chunk_size ))
     local chunk_file
     chunk_file="$(mktemp)"
-    dd if="$file" of="$chunk_file" bs=1 skip="$offset" count="$take" status=none
+    # Byte-exact slice without a pipeline (tail|head + pipefail would
+    # die with SIGPIPE once head closes the pipe early).
+    dd if="$file" of="$chunk_file" bs=1M iflag=skip_bytes,count_bytes skip="$offset" count="$take" status=none
     local patch_headers new_offset
     patch_headers="$(curl --fail-with-body --silent --show-error --max-time 300 -D - -o /dev/null \
       --request PATCH "$location" \
-      --header "Authorization: Bearer $token" \
+      --header "x-signature: $token" \
       --header 'Tus-Resumable: 1.0.0' \
       --header 'Content-Type: application/offset+octet-stream' \
       --header "Upload-Offset: $offset" \
@@ -182,11 +211,18 @@ cmd_upload() { # upload ID [FILE] — reads the artifact reservation from state
   local id="$1" file="${2:-}"
   valid_uuid "$id" || { echo 'Invalid build ID' >&2; exit 2; }
   [[ -f "$STATE_FILE" ]] || { echo 'No prepare state found; run prepare first.' >&2; exit 2; }
-  local upload_url token method artifact_id
+  local upload_url token method artifact_id bucket object_path content_type
   upload_url="$(jq -r '.prepare.uploadUrl // empty' "$STATE_FILE")"
   token="$(jq -r '.prepare.uploadToken // empty' "$STATE_FILE")"
   method="$(jq -r '.prepare.method // "standard"' "$STATE_FILE")"
   artifact_id="$(jq -r '.prepare.artifactId // empty' "$STATE_FILE")"
+  bucket="$(jq -r '.prepare.bucket // "yap-artifacts"' "$STATE_FILE")"
+  object_path="$(jq -r '.prepare.objectPath // empty' "$STATE_FILE")"
+  case "$file" in
+    *.apk) content_type='application/vnd.android.package-archive' ;;
+    *.zip) content_type='application/zip' ;;
+    *) content_type='application/octet-stream' ;;
+  esac
   [[ -n "$upload_url" && -n "$artifact_id" ]] || { echo 'Prepare state is incomplete.' >&2; exit 2; }
   if [[ -z "$file" ]]; then
     echo 'Usage: worker-v2.sh upload ID FILE.apk' >&2; exit 2
@@ -194,11 +230,13 @@ cmd_upload() { # upload ID [FILE] — reads the artifact reservation from state
   [[ -f "$file" ]] || { echo "File not found: $file" >&2; exit 2; }
   if [[ "$method" == tus ]]; then
     [[ -n "$token" ]] || { echo 'TUS upload needs an upload token from prepare.' >&2; exit 2; }
-    tus_upload "$file" "$upload_url" "$token"
+    [[ -n "$object_path" ]] || { echo 'TUS upload needs the object path from prepare.' >&2; exit 2; }
+    tus_upload "$file" "$upload_url" "$token" "$bucket" "$object_path" "$content_type"
   else
     # Standard signed upload: token is in the URL; no Authorization header.
     curl --fail-with-body --silent --show-error --max-time 300 \
-      --request PUT --data-binary "@$file" "$upload_url"
+      --request PUT --header "Content-Type: $content_type" \
+      --data-binary "@$file" "$upload_url"
     echo "Upload complete: $(stat -c %s "$file") bytes."
   fi
 }

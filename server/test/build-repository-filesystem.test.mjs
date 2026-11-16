@@ -3,7 +3,7 @@
 // (AndroidManifest.xml + classes.dex + assets/index.html) built with fflate —
 // it exercises hash/size/ZIP/preview matching, NOT a real signed APK.
 // apksigner verification is a worker-side step and is not claimed here.
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -275,5 +275,87 @@ test('signal reflects pending work and goes quiet after claim', async () => {
     assert.equal(signal.jobId, id);
     await repo.claim({ claimRequestId: randomUUID() });
     assert.deepEqual(await repo.signal(), { pending: false });
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('claim replay after reclaim returns a dead replay, never the new lease', async () => {
+  const { directory, repo, advance } = await setup();
+  try {
+    const id = randomUUID();
+    await repo.create({ id, ownerHash: 'owner-hash', prompt: 'Buat kalkulator', context: '', responseMode: 'apk' });
+    const claimId = randomUUID();
+    const first = await repo.claim({ claimRequestId: claimId });
+    assert.equal(first.job.id, id);
+    const lease1 = first.job.lease;
+    // Lease expires, job is reclaimed under a new lease.
+    advance(LIMITS.leaseMs + 1000);
+    const second = await repo.claim({ claimRequestId: randomUUID() });
+    assert.equal(second.job.id, id);
+    assert.notEqual(second.job.lease, lease1);
+    // Replaying the first claimRequestId must NOT hand out the new lease.
+    const replay = await repo.claim({ claimRequestId: claimId });
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.job, null);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('renew is capped at the 30-minute attempt deadline', async () => {
+  const { directory, repo, advance, clock } = await setup();
+  try {
+    const { id, job } = await submitClaimed(repo);
+    const start = job.attemptStartedAt;
+    const deadline = start + LIMITS.maxAttemptMs;
+    // Keep the lease alive with renews: 9 -> 19, 18 -> 28, 27 -> capped at 30.
+    advance(9 * 60_000);
+    const r1 = await repo.renew({ jobId: id, lease: job.lease });
+    assert.equal(r1.leaseExpiresAt, start + 19 * 60_000);
+    advance(9 * 60_000);
+    const r2 = await repo.renew({ jobId: id, lease: job.lease });
+    assert.equal(r2.leaseExpiresAt, start + 28 * 60_000);
+    advance(9 * 60_000);
+    const r3 = await repo.renew({ jobId: id, lease: job.lease });
+    assert.equal(r3.leaseExpiresAt, deadline, 'renew terakhir di-cap di deadline 30 menit');
+    // Put the job 31 minutes into its attempt while the lease is still
+    // alive (same state the SQL test creates via UPDATE): renew must be
+    // rejected with attempt_expired, not silently extended.
+    const jobPath = join(directory, `${id}.json`);
+    const doc = JSON.parse(await readFile(jobPath, 'utf8'));
+    doc.attemptStartedAt = clock() - 31 * 60_000;
+    doc.leaseExpiresAt = clock() + 5 * 60_000;
+    doc.expires = doc.leaseExpiresAt;
+    await writeFile(jobPath, JSON.stringify(doc));
+    await assert.rejects(
+      repo.renew({ jobId: id, lease: job.lease }),
+      error => error.status === 409 && error.code === 'attempt_expired',
+    );
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('owner checks are exact: other guests and empty owners are rejected', async () => {
+  const { directory, repo } = await setup();
+  try {
+    const { id, job } = await submitClaimed(repo);
+    const asked = await repo.askQuestion({ jobId: id, lease: job.lease, operationId: randomUUID(), question: 'Warna apa?' });
+    const questionId = asked.job.clarifications.at(-1).id;
+    // requireOwner is enforced by answer(): wrong owner, empty owner and
+    // missing owner all get 404; the admin namespace may answer any job.
+    await assert.rejects(
+      repo.answer({ jobId: id, ownerHash: 'other-owner', questionId, answer: 'Merah' }),
+      error => error.status === 404,
+    );
+    await assert.rejects(
+      repo.answer({ jobId: id, ownerHash: null, questionId, answer: 'Merah' }),
+      error => error.status === 404,
+    );
+    await assert.rejects(
+      repo.answer({ jobId: id, ownerHash: '', questionId, answer: 'Merah' }),
+      error => error.status === 404,
+    );
+    await assert.rejects(
+      repo.answer({ jobId: id, ownerHash: undefined, questionId, answer: 'Merah' }),
+      error => error.status === 404,
+    );
+    const adminAnswer = await repo.answer({ jobId: id, ownerHash: 'admin', questionId, answer: 'Biru' });
+    assert.equal(adminAnswer.job.status, 'queued');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

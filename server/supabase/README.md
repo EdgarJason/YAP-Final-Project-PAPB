@@ -2,6 +2,8 @@
 
 Status: **scaffold di branch lokal `codex/vercel-supabase-plan-implementation` — belum di-deploy, belum ada proyek Vercel/Supabase, belum ada token.** Semua yang bisa diuji lokal sudah diuji; semua yang butuh proyek live ditandai di bawah dan TIDAK diklaim lolos.
 
+Revisi ini memuat perbaikan 9 penghalang + catatan kuota dari review scaffold (lihat `~/workspace/yap-worker/MIGRATION-REVIEW.md`): helper hash pgcrypto yang menyelesaikan schema extension, replay claim yang tidak memberi lease pengganti, deadline renew 30 menit, prepare POST, prepare replay yang menerbitkan ulang kredensial upload, kontrak TUS resmi (chunk 6 MiB, `x-signature`, metadata bucket/object), inspeksi ZIP lewat central directory, urutan cabang adapter biner, owner exact-match + namespace `admin`, dan advisory lock pada create.
+
 Rancangan: `~/workspace/user/files/RANCANGAN-VERCEL-SUPABASE.md` (§6–§9, §15–§16).
 
 ## Arsitektur singkat
@@ -26,6 +28,12 @@ Rancangan: `~/workspace/user/files/RANCANGAN-VERCEL-SUPABASE.md` (§6–§9, §1
 | `server/supabase/migrations/0003_storage.sql` | Bucket privat `yap-artifacts` (batas 32 MiB), kebijakan Storage. |
 | `server/muse/worker-v2.sh` | Helper worker v2: claim (claimRequestId persisten, `reuse`/`resume`), renew, prepare, upload (standar/TUS), finalize dengan `apksigner verify` + hash/size + preview. Token hanya dari env, tidak pernah ditulis ke file/log. |
 | `server/test/build-service.test.mjs`, `build-repository-filesystem.test.mjs`, `build-api-v2.test.mjs`, `build-repository-supabase.test.mjs` | Tes kontrak lokal (lihat bawah). |
+| `server/test/supabase-postgres.test.mjs` | Tes regresi SQL terhadap PostgreSQL 16 lokal nyata (dua database: pgcrypto di `public` dan di `extensions`); di-skip jelas bila Postgres tidak tersedia. |
+| `server/test/http-adapter.test.mjs` | Tes HTTP nyata: `local.mjs` mode v2 + `worker-v2.sh` (prepare POST + finalize), byte APK via adapter, owner, claim replay mati, renew deadline. |
+| `server/test/worker-tus.test.mjs` | Tes klien TUS `worker-v2.sh` terhadap endpoint TUS lokal yang merekam request (chunk 6 MiB, `x-signature`, metadata, resume, 32 MiB, 401). |
+| `server/test/artifact-storage.test.mjs` | Tes ZIP terbatas: ZIP bomb, duplicate name, path traversal, preview. |
+| `server/test/fixtures/test-app.apk` + `build-fixture-apk.sh` | APK fixture nyata (javac → d8 → aapt2 → zipalign → apksigner, keystore tes di /tmp): package `com.example.fixture`, label "Fixture Uji", `assets/index.html` berisi `preview-marker-7f3a9`. |
+| `server/test/setup-local-pg.sh` | Setup PostgreSQL lokal yang idempotent (cluster/role/database/trust loopback) — jalankan ulang setelah VM restart. |
 | `server/test/supabase-live.test.mjs` | Tes integrasi live — di-skip tanpa kredensial. |
 | `server/vercel.json` | Route baru ditambahkan; `api/generate.mjs` (maxDuration 300) dipertahankan. |
 | `server/local.mjs` | Saklar `YAP_STORAGE_BACKEND=supabase` (default filesystem). |
@@ -45,17 +53,38 @@ Rancangan: `~/workspace/user/files/RANCANGAN-VERCEL-SUPABASE.md` (§6–§9, §1
 ## Yang sudah diuji lokal (`npm test` di `server/`)
 
 - Validasi semua batas, preview setelah JSON escaping, hash kanonik, wakeId.
-- Repository filesystem: retry submit idempoten (payload sama → 200, berubah → 409), 10 claim bersamaan → tepat 1 pemenang, replay `claimRequestId`, lease usang ditolak lalu reclaim, question/answer/requeue, maks 5 klarifikasi, message hanya untuk `chat`, prepare → store → finalize dengan hash/size/preview yang cocok, finalize dengan preview tidak cocok ditolak, renew memperpanjang lease yang sama.
+- Repository filesystem: retry submit idempoten (payload sama → 200, berubah → 409), 10 claim bersamaan → tepat 1 pemenang, replay `claimRequestId`, replay claim lama setelah reclaim → `job null` (tidak pernah memberi lease pengganti), lease usang ditolak lalu reclaim, question/answer/requeue, maks 5 klarifikasi, message hanya untuk `chat`, prepare → store → finalize dengan hash/size/preview yang cocok, finalize dengan preview tidak cocok ditolak, renew memperpanjang lease yang sama, renew di-cap di deadline attempt 30 menit (29 → diperpanjang ke deadline, setelah deadline → 409 `attempt_expired`), owner exact-match (guest lain/owner kosong ditolak, `admin` boleh).
 - Router v2: capabilities, auth guest/worker, isolasi owner (404), claim/resume, renew, 426 untuk biner legacy, alur prepare → finalize → preview, `/download` pada backend filesystem → 501 (tidak ada signed URL), `/apk` legacy tetap melayani file pada backend filesystem.
-- Repository Supabase dengan `fetch` mock: pemetaan envelope RPC, error bisnis 409, transport 401/502, prepare memilih TUS untuk APK > 6 MiB, finalize memverifikasi byte outbound sebelum memanggil RPC finalize, `storeArtifactBytes` menolak upload lewat gateway (426).
+- Repository Supabase dengan `fetch` mock: pemetaan envelope RPC, error bisnis 409, transport 401/502, prepare memilih TUS untuk APK > 6 MiB, prepare replay menerbitkan ulang kredensial upload untuk object path yang sama (artifact verified / lease usang → 409, tanpa izin menimpa), finalize memverifikasi byte outbound sebelum memanggil RPC finalize, `storeArtifactBytes` menolak upload lewat gateway (426).
+- **PostgreSQL nyata (lokal, PG16)** — `supabase-postgres.test.mjs`: migrasi 0001→0002→0003 berjalan bersih pada dua database (pgcrypto di `public` dan di `extensions`), `yap_sha256_hex('abc')` cocok dengan SHA-256 yang dikenal, signal, create idempoten + kuota (5/hari/owner, antrean 20), kuota di bawah submit paralel (10 submit owner sama → tepat 5; 25 owner berbeda → tepat 20), claim + replay setelah reclaim, renew di boundary 29/30/31 menit, question/answer (owner salah → 404, jawab ganda idempoten), prepare replay + finalize (SHA salah ditolak, SHA benar → ready, finalize setelah lease habis ditolak), RLS anon ditolak (tabel + RPC), namespace admin (job admin, admin menjawab job guest).
+- **HTTP nyata** — `http-adapter.test.mjs`: `local.mjs` mode v2 di loopback + `worker-v2.sh` asli (claim → prepare POST → finalize), `GET /api/build/{id}/apk` mengembalikan byte APK lengkap dengan Content-Length/size/hash yang cocok, owner via HTTP (guest lain 404, tanpa auth 401, job admin tak terbaca guest), claim replay mati via HTTP (200, `job null`), renew deadline via HTTP.
+- **TUS** — `worker-tus.test.mjs`: endpoint TUS lokal merekam bahwa klien mengirim chunk 6 MiB, token di header `x-signature` (tanpa Authorization Bearer), metadata `bucketName`/`objectName`/`contentType`, resume dari offset server, upload 32 MiB penuh, dan 401 pada PATCH menggagalkan upload.
+- **ZIP terbatas** — `artifact-storage.test.mjs`: arsip zeros yang mengembang ke 300 MiB ditolak tanpa full unzip, duplicate name dan path traversal ditolak, preview `assets/index.html` hanya diekstrak setelah batas ukuran dicek.
+
+### Menjalankan tes Postgres lokal
+
+Tes Postgres butuh PostgreSQL 16 terinstal dan database/role tes di loopback.
+Instalasi sistem di VM ini **tidak bertahan setelah restart** — setelah restart,
+instal ulang lalu jalankan setup, baru jalankan tes:
+
+```bash
+apt-get update && apt-get install -y postgresql   # Ubuntu noble -> PG16 (lambat via proxy, beri waktu)
+bash server/test/setup-local-pg.sh                # cluster/role/database/trust loopback (idempotent)
+cd server && npm test                             # supabase-postgres.test.mjs jalan; bila Postgres
+                                                  # tidak tersedia, file itu di-skip dengan pesan jelas
+```
+
+Variabel yang bisa diubah: `PG_VERSION` untuk skrip setup; `YAP_TEST_PGHOST`,
+`YAP_TEST_PGPORT`, `YAP_TEST_PGUSER` untuk tes. Semua koneksi loopback lokal,
+tanpa kredensial proyek Supabase user.
 
 ## Yang BELUM bisa diuji tanpa proyek Supabase/Vercel live
 
-1. **Migrasi SQL terhadap Postgres nyata.** Sintaks ditulis hati-hati dan mengikuti pola `0001`/`0002`, tapi belum pernah dijalankan (`psql`/`supabase db push` belum tersedia di VM ini untuk proyek live). Jalankan di staging dengan `supabase db push` / SQL editor, lalu periksa tidak ada error dan RPC `yap_signal`/`yap_claim_job` merespons.
-2. **Alur Storage nyata.** Signed upload URL, TUS resumable (implementasi bash di `worker-v2.sh` mengikuti spesifikasi TUS, belum pernah melawan endpoint Supabase nyata), signed download URL, dan verifikasi outbound 32 MiB di Vercel (timeout/durasi function). Uji dengan fixture APK 32 MiB di staging.
+1. **Migrasi SQL terhadap Supabase nyata.** Migrasi sudah diuji terhadap PostgreSQL 16 lokal nyata pada dua layout pgcrypto (`public` dan `extensions`) — termasuk claim/replay/renew/kuota/RLS — tapi belum pernah dijalankan di proyek Supabase user (versi Postgres dan perilaku Storage Supabase bisa berbeda). Jalankan 0001→0002→0003 di SQL Editor staging, lalu periksa tidak ada error dan RPC `yap_signal`/`yap_claim_job` merespons.
+2. **Alur Storage nyata.** Klien TUS sudah diuji terhadap endpoint TUS lokal yang merekam request (chunk 6 MiB, `x-signature`, metadata, resume, 32 MiB), dan bentuk respons signed upload URL REST sudah diverifikasi dari dokumentasi + SDK Supabase — tapi signed upload URL, TUS, dan signed download URL belum pernah melawan Storage Supabase nyata, dan verifikasi outbound 32 MiB di Vercel (timeout/durasi function) belum diuji. Uji dengan fixture APK 32 MiB di staging.
 3. **Routing Vercel nyata.** File `api/build/[id].mjs` dan kawan-kawan mengikuti konvensi file-based routing Vercel, tapi dispatch aktual (`/api/build`, `/signal`, `/claim`, `/{id}/...`) belum dibuktikan di deployment. Uji di deployment preview: `GET /api/capabilities`, `GET /api/build/signal`.
-4. **Concurrency lintas instance.** Tes claim ganda lokal hanya satu proses. Di Supabase, atomicity bergantung pada RPC + `FOR UPDATE SKIP LOCKED` — uji dengan dua klien bersamaan melawan database staging (§19 rancangan).
-5. **Quota.** `yap_create_job` menegakkan antrean maks 20 dan 5 build/hari per owner di SQL; `usage_buckets` ada sebagai tabel, tapi rate-limit per menit dan budget Storage 600 MiB belum diimplementasikan di API (ditandai sebagai pekerjaan staging).
+4. **Concurrency lintas instance.** Tes claim ganda lokal hanya satu proses; kuota create sudah diuji paralel melawan Postgres lokal (advisory lock). Di Supabase, atomicity bergantung pada RPC + `FOR UPDATE SKIP LOCKED` — uji dengan dua klien bersamaan melawan database staging (§19 rancangan).
+5. **Quota.** `yap_create_job` menegakkan antrean maks 20 dan 5 build/hari per owner di SQL (dengan advisory lock, diuji paralel lokal); `usage_buckets` ada sebagai tabel, tapi rate-limit per menit dan budget Storage 600 MiB belum diimplementasikan di API (ditandai sebagai pekerjaan staging).
 6. **Hook + worker end-to-end.** `worker-v2.sh` belum pernah claim/prepare/upload/finalize melawan origin live; `check-signal.sh` lama tetap berlaku untuk sinyal publik.
 
 ## Langkah staging berikutnya
