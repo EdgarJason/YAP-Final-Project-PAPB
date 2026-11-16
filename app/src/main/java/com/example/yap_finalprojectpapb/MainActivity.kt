@@ -168,17 +168,6 @@ fun MainAppContent() {
                         onRegisterClick = { navController.navigate(Routes.REGISTER) }
                     )
                 }
-                composable(Routes.NAME_INPUT) {
-                    NameInputScreen(
-                        authViewModel = authViewModel,
-                        onBackClick = { navController.popBackStack() },
-                        onNextClick = {
-                            navController.navigate(Routes.ALL_SET) {
-                                popUpTo(Routes.WELCOME) { inclusive = true }
-                            }
-                        }
-                    )
-                }
                 composable(Routes.LOGIN) {
                     LoginScreen(
                         authViewModel = authViewModel,
@@ -195,16 +184,24 @@ fun MainAppContent() {
                     RegisterScreen(
                         authViewModel = authViewModel,
                         onRegisterSuccess = {
-                            navController.navigate(Routes.NAME_INPUT)
+                            navController.navigate(Routes.OTP)
+                        },
+                        onGoogleSuccess = {
+                            navController.navigate(Routes.NAME_INPUT) {
+                                popUpTo(Routes.WELCOME) { inclusive = true }
+                            }
                         },
                         onLogInClick = { navController.navigate(Routes.LOGIN) }
                     )
                 }
                 composable(Routes.OTP) {
                     OTPScreen(
+                        authViewModel = authViewModel,
                         onBackClick = { navController.popBackStack() },
-                        onConfirmClick = { _ ->
-                            navController.navigate(Routes.NAME_INPUT)
+                        onConfirmClick = {
+                            navController.navigate(Routes.NAME_INPUT) {
+                                popUpTo(Routes.WELCOME) { inclusive = true }
+                            }
                         }
                     )
                 }
@@ -233,12 +230,6 @@ fun MainAppContent() {
                         authViewModel = authViewModel,
                         onBackClick = { navController.popBackStack() },
                         onSendClick = { navController.popBackStack() }
-                    )
-                }
-                composable(Routes.OTP) {
-                    OTPScreen(
-                        onBackClick = { navController.popBackStack() },
-                        onConfirmClick = { navController.navigate(Routes.CHANGE_PASSWORD) }
                     )
                 }
                 composable(Routes.CHANGE_PASSWORD) {

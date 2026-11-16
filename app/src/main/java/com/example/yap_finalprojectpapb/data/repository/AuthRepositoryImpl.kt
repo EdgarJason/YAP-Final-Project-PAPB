@@ -48,6 +48,10 @@ class AuthRepositoryImpl(
         private const val TAG = "AuthRepositoryImpl"
         const val WEB_CLIENT_ID = "967814301003-hjnv6oncdqhcq3ugg5p5m73cjsc0bbdb.apps.googleusercontent.com"
         private const val USERS_COLLECTION = "users"
+        private const val EMAILJS_ENDPOINT = "https://api.emailjs.com/api/v1.0/email/send"
+        const val EMAILJS_SERVICE_ID = "service_dgdau5d"
+        const val EMAILJS_TEMPLATE_ID = "template_wge296m"
+        const val EMAILJS_PUBLIC_KEY = "TJTgBpqCsZFYNlvDh"
     }
 
     override val isLoggedIn: Boolean
@@ -91,17 +95,38 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun getUserProfile(): UserProfile? {
-        val user = auth.currentUser ?: return null
+        val initialUser = auth.currentUser ?: return null
+        withTimeoutOrNull(3_000L) {
+            runCatching { initialUser.reload().await() }
+        }
+        val user = auth.currentUser ?: initialUser
         val snapshot = withTimeoutOrNull(4_000L) {
             runCatching {
                 firestore.collection(USERS_COLLECTION).document(user.uid).get().await()
             }.getOrNull()
         }
-        return if (snapshot != null && snapshot.exists()) {
-            snapshot.toUserProfile(user)
-        } else {
-            user.toFallbackProfile()
+        if (snapshot != null && snapshot.exists()) {
+            val profile = snapshot.toUserProfile(user)
+            val storedEmail = snapshot.getString("email").orEmpty()
+            val authEmail = user.email.orEmpty()
+            if (authEmail.isNotBlank() && authEmail != storedEmail) {
+                withTimeoutOrNull(3_000L) {
+                    runCatching {
+                        firestore.collection(USERS_COLLECTION).document(user.uid)
+                            .set(
+                                mapOf(
+                                    "email" to authEmail,
+                                    "pendingEmail" to "",
+                                    "updatedAt" to System.currentTimeMillis()
+                                ),
+                                SetOptions.merge()
+                            ).await()
+                    }
+                }
+            }
+            return profile
         }
+        return user.toFallbackProfile()
     }
 
     override suspend fun loginWithEmail(email: String, password: String): UserProfile {
@@ -231,30 +256,45 @@ class AuthRepositoryImpl(
 
     override suspend fun sendEmailOtp(email: String, otpCode: String) {
         val trimmedEmail = email.trim()
-        if (trimmedEmail.isEmpty()) return
+        require(trimmedEmail.isNotEmpty()) { "Email wajib diisi." }
+        if (EMAILJS_TEMPLATE_ID.startsWith("YOUR_") || EMAILJS_PUBLIC_KEY.startsWith("YOUR_")) {
+            error("Konfigurasi EmailJS belum lengkap. Isi EMAILJS_TEMPLATE_ID & EMAILJS_PUBLIC_KEY terlebih dahulu.")
+        }
+
         withContext(Dispatchers.IO) {
+            val url = URI(EMAILJS_ENDPOINT).toURL()
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 10_000
+                readTimeout = 10_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
             try {
-                val url = URI("https://api.emailjs.com/api/v1.0/email/send").toURL()
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 8000
-                    readTimeout = 8000
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json")
-                }
                 val payload = buildJsonObject {
-                    put("service_id", "service_yap")
-                    put("template_id", "template_otp")
-                    put("user_id", "user_yap")
+                    put("service_id", EMAILJS_SERVICE_ID)
+                    put("template_id", EMAILJS_TEMPLATE_ID)
+                    put("user_id", EMAILJS_PUBLIC_KEY)
                     put("template_params", buildJsonObject {
                         put("to_email", trimmedEmail)
+                        put("email", trimmedEmail)
                         put("otp_code", otpCode)
+                        put("passcode", otpCode)
+                        put("app_name", "YAP AI Builder")
                     })
                 }.toString()
                 connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-                connection.responseCode
-            } catch (e: Exception) {
-                Log.e(TAG, "Gagal mengirim email OTP ke $trimmedEmail: ${e.message}")
+
+                val statusCode = connection.responseCode
+                if (statusCode !in 200..299) {
+                    val errText = runCatching {
+                        (connection.errorStream ?: connection.inputStream)?.bufferedReader()?.use { it.readText() }
+                    }.getOrNull().orEmpty()
+                    Log.e(TAG, "EmailJS error ($statusCode) ke $trimmedEmail: $errText")
+                    throw IllegalStateException("Gagal mengirim OTP ke email ($statusCode). ${errText.take(120)}")
+                }
+            } finally {
+                connection.disconnect()
             }
         }
     }
@@ -453,7 +493,8 @@ class AuthRepositoryImpl(
         val lastName = getString("lastName") ?: fallback.lastName
         val fullName = getString("fullName")?.takeIf { it.isNotBlank() }
             ?: "$firstName $lastName".trim().ifEmpty { fallback.fullName }
-        val email = getString("email")?.takeIf { it.isNotBlank() } ?: fallback.email
+        val email = fallback.email.takeIf { it.isNotBlank() }
+            ?: getString("email")?.takeIf { it.isNotBlank() }.orEmpty()
         val photoUrl = getString("photoUrl")?.takeIf { it.isNotBlank() } ?: fallback.photoUrl
         val createdAt = getLong("createdAt") ?: fallback.createdAt
         val updatedAt = getLong("updatedAt") ?: fallback.updatedAt

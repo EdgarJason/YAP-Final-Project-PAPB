@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.yap_finalprojectpapb.data.repository.AuthRepositoryImpl
 import com.example.yap_finalprojectpapb.domain.model.UserProfile
 import com.example.yap_finalprojectpapb.domain.repository.AuthRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +20,9 @@ data class AuthUiState(
     val userProfile: UserProfile? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val pendingEmail: String = "",
+    val otpCooldownSeconds: Int = 0
 )
 
 class AuthViewModel(
@@ -32,6 +36,11 @@ class AuthViewModel(
         AuthUiState(isLoggedIn = authRepository.isLoggedIn)
     )
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    private var pendingPassword: String = ""
+    private var pendingOtpCode: String = ""
+    private var pendingOtpExpiresAt: Long = 0L
+    private var otpCooldownJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -48,6 +57,16 @@ class AuthViewModel(
 
     fun clearFeedback() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
+    }
+
+    fun refreshProfile() {
+        viewModelScope.launch {
+            runCatching { authRepository.getUserProfile() }
+                .getOrNull()
+                ?.let { profile ->
+                    _uiState.update { it.copy(userProfile = profile) }
+                }
+        }
     }
 
     fun registerWithEmail(
@@ -86,6 +105,147 @@ class AuthViewModel(
                         errorMessage = e.message ?: "Gagal membuat akun."
                     )
                 }
+            }
+        }
+    }
+
+    fun startRegistrationWithOtp(
+        email: String,
+        password: String,
+        onOtpSent: () -> Unit
+    ) {
+        if (_uiState.value.isLoading) return
+        val trimmedEmail = email.trim()
+        if (trimmedEmail.isEmpty() || password.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Email dan password wajib diisi.") }
+            return
+        }
+        val otpCode = (100000..999999).random().toString()
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+        viewModelScope.launch {
+            try {
+                authRepository.sendEmailOtp(trimmedEmail, otpCode)
+                pendingPassword = password
+                pendingOtpCode = otpCode
+                pendingOtpExpiresAt = System.currentTimeMillis() + 5 * 60_000L
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        pendingEmail = trimmedEmail,
+                        errorMessage = null,
+                        successMessage = null
+                    )
+                }
+                startOtpCooldown()
+                onOtpSent()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Gagal mengirim kode OTP ke email."
+                    )
+                }
+            }
+        }
+    }
+
+    fun resendRegistrationOtp() {
+        val current = _uiState.value
+        val targetEmail = current.pendingEmail
+        if (current.isLoading || current.otpCooldownSeconds > 0 || targetEmail.isBlank()) return
+        val otpCode = (100000..999999).random().toString()
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+        viewModelScope.launch {
+            try {
+                authRepository.sendEmailOtp(targetEmail, otpCode)
+                pendingOtpCode = otpCode
+                pendingOtpExpiresAt = System.currentTimeMillis() + 5 * 60_000L
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = null,
+                        successMessage = "Kode OTP baru telah dikirim ke $targetEmail"
+                    )
+                }
+                startOtpCooldown()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Gagal mengirim ulang kode OTP."
+                    )
+                }
+            }
+        }
+    }
+
+    fun verifyRegistrationOtp(
+        inputCode: String,
+        onSuccess: () -> Unit
+    ) {
+        if (_uiState.value.isLoading) return
+        val email = _uiState.value.pendingEmail
+        val password = pendingPassword
+        if (email.isBlank() || password.isBlank() || pendingOtpCode.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Sesi pendaftaran tidak ditemukan. Silakan daftar ulang.") }
+            return
+        }
+        val trimmedCode = inputCode.trim()
+        if (trimmedCode.length != 6) {
+            _uiState.update { it.copy(errorMessage = "Masukkan 6 digit kode OTP.") }
+            return
+        }
+        if (System.currentTimeMillis() > pendingOtpExpiresAt) {
+            _uiState.update { it.copy(errorMessage = "Kode OTP kedaluwarsa. Silakan kirim ulang kode.") }
+            return
+        }
+        if (trimmedCode != pendingOtpCode) {
+            _uiState.update { it.copy(errorMessage = "Kode OTP salah. Periksa kembali email kamu.") }
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+        viewModelScope.launch {
+            try {
+                val profile = authRepository.registerWithEmail(
+                    firstName = "User",
+                    lastName = "",
+                    email = email,
+                    password = password
+                )
+                pendingPassword = ""
+                pendingOtpCode = ""
+                pendingOtpExpiresAt = 0L
+                otpCooldownJob?.cancel()
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoggedIn = true,
+                        userProfile = profile,
+                        pendingEmail = "",
+                        otpCooldownSeconds = 0,
+                        errorMessage = null,
+                        successMessage = null
+                    )
+                }
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Gagal membuat akun setelah verifikasi OTP."
+                    )
+                }
+            }
+        }
+    }
+
+    private fun startOtpCooldown(seconds: Int = 30) {
+        otpCooldownJob?.cancel()
+        otpCooldownJob = viewModelScope.launch {
+            for (remaining in seconds downTo 0) {
+                _uiState.update { it.copy(otpCooldownSeconds = remaining) }
+                if (remaining > 0) delay(1_000L)
             }
         }
     }

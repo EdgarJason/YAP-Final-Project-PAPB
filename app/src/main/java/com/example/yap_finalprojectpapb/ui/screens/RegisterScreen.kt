@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -58,33 +59,47 @@ fun RegisterScreen(
     authViewModel: AuthViewModel = viewModel(),
     registerViewModel: RegisterViewModel = viewModel(),
     onRegisterSuccess: () -> Unit = {},
+    onGoogleSuccess: () -> Unit = onRegisterSuccess,
     onLogInClick: () -> Unit = {}
 ) {
     val uiState by registerViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    LaunchedEffect(Unit) {
+        authViewModel.clearFeedback()
+    }
+
     val combinedAuthError = authState.errorMessage ?: uiState.authError
     val isLoading = authState.isLoading || uiState.isLoading
 
     RegisterContent(
         uiState = uiState.copy(authError = combinedAuthError, isLoading = isLoading),
-        onEmailChange = registerViewModel::onEmailChange,
-        onPasswordChange = registerViewModel::onPasswordChange,
-        onConfirmPasswordChange = registerViewModel::onConfirmPasswordChange,
+        onEmailChange = {
+            if (authState.errorMessage != null) authViewModel.clearFeedback()
+            registerViewModel.onEmailChange(it)
+        },
+        onPasswordChange = {
+            if (authState.errorMessage != null) authViewModel.clearFeedback()
+            registerViewModel.onPasswordChange(it)
+        },
+        onConfirmPasswordChange = {
+            if (authState.errorMessage != null) authViewModel.clearFeedback()
+            registerViewModel.onConfirmPasswordChange(it)
+        },
         onTogglePassword = registerViewModel::togglePasswordVisibility,
         onToggleConfirmPassword = registerViewModel::toggleConfirmPasswordVisibility,
         onSubmit = {
             if (registerViewModel.validateAndSubmit()) {
-                authViewModel.registerWithEmail(
+                authViewModel.startRegistrationWithOtp(
                     email = uiState.email.trim(),
                     password = uiState.password,
-                    onSuccess = onRegisterSuccess
+                    onOtpSent = onRegisterSuccess
                 )
             }
         },
         onGoogleSignInClick = {
-            authViewModel.signInWithGoogle(context = context, onSuccess = onRegisterSuccess)
+            authViewModel.signInWithGoogle(context = context, onSuccess = onGoogleSuccess)
         },
         onLogInClick = onLogInClick
     )
