@@ -6,11 +6,32 @@ import android.content.SharedPreferences
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.yap_finalprojectpapb.data.GatewaySettingsStore
 import com.example.yap_finalprojectpapb.data.defaultGatewayUrl
+import com.example.yap_finalprojectpapb.data.legacyGatewayUrl
+import com.example.yap_finalprojectpapb.data.GatewaySettings
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.UUID
 
 class GuestSettingsTest {
+    @Test fun migratesOldDefaultAndRetainsGuestButPreservesCustomServers() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "guest-migration-test-${UUID.randomUUID()}"
+        val context = object : ContextWrapper(app) {
+            override fun getSharedPreferences(ignored: String, mode: Int): SharedPreferences =
+                app.getSharedPreferences(name, Context.MODE_PRIVATE)
+        }
+        try {
+            val store = GatewaySettingsStore(context)
+            val guest = "guest_" + "a".repeat(64)
+            store.save(GatewaySettings(legacyGatewayUrl, guest))
+            assertEquals(GatewaySettings(defaultGatewayUrl, guest), store.load())
+            assertEquals(GatewaySettings(defaultGatewayUrl, guest), store.load())
+            val custom = GatewaySettings("https://team.example", "b".repeat(64))
+            store.save(custom)
+            assertEquals(custom, store.load())
+        } finally { app.deleteSharedPreferences(name) }
+    }
+
     @Test fun freshInstallationConnectsWithoutProvisioningAndRetainsItsIdentity() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "guest-settings-test-${UUID.randomUUID()}"

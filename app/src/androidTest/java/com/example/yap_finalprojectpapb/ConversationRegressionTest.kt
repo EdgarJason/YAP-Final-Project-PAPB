@@ -141,6 +141,57 @@ class ConversationRegressionTest {
         }
     }
 
+    @Test fun failedGatewayCannotBecomeAnInventedReadyApp() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = IsolatedApplication(instrumentation.targetContext)
+        val server = ServerSocket(0).apply { soTimeout = 10_000 }
+        val executor = Executors.newSingleThreadExecutor()
+        val request = executor.submit {
+            server.accept().use { socket ->
+                socket.soTimeout = 10_000
+                val input = socket.getInputStream().bufferedReader()
+                input.readLine()
+                var line = input.readLine()
+                var length = 0
+                while (!line.isNullOrEmpty()) {
+                    if (line.startsWith("Content-Length:", true)) length = line.substringAfter(':').trim().toInt()
+                    line = input.readLine()
+                }
+                val body = CharArray(length)
+                var size = 0
+                while (size < length) {
+                    val count = input.read(body, size, length - size)
+                    check(count > 0)
+                    size += count
+                }
+                socket.getOutputStream().apply {
+                    write("HTTP/1.1 401 Unauthorized\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}".toByteArray())
+                    flush()
+                }
+            }
+        }
+        try {
+            lateinit var model: StudioViewModel
+            instrumentation.runOnMainSync {
+                GatewaySettingsStore(app).save(GatewaySettings("http://127.0.0.1:${server.localPort}", "fixture".repeat(8)))
+                model = StudioViewModel(app)
+                model.buildApk("Buat kalkulator")
+            }
+            request.get(10, TimeUnit.SECONDS)
+            val deadline = System.currentTimeMillis() + 10_000
+            while (model.state.value.loading && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertFalse(model.state.value.loading)
+            assertNotNull(model.state.value.error)
+            assertNull(model.state.value.apk)
+            assertNull(model.state.value.reply)
+            assertNull(model.state.value.previewHtml)
+        } finally {
+            server.close()
+            executor.shutdownNow()
+            app.cleanup()
+        }
+    }
+
     @Test fun temporaryGatewayFailureRetriesTheSameJob() = runBlocking {
         val app = IsolatedApplication(InstrumentationRegistry.getInstrumentation().targetContext)
         val server = ServerSocket(0).apply { soTimeout = 10_000 }

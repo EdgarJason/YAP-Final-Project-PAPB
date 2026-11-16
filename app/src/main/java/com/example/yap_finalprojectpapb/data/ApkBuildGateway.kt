@@ -162,30 +162,7 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
             check(expectedSize in 1..33_554_432) { "Ukuran APK tidak valid." }
             val temp = File.createTempFile("yap-apk-", ".tmp", context.cacheDir)
             try {
-                val connection = connect(settings, "/api/build/${job.id}/apk", "GET")
-                val digest = MessageDigest.getInstance("SHA-256")
-                var size = 0L
-                try {
-                    checkResponse(connection)
-                    connection.inputStream.use { input ->
-                        temp.outputStream().use { output ->
-                            val buffer = ByteArray(8192)
-                            while (true) {
-                                currentCoroutineContext().ensureActive()
-                                val count = input.read(buffer)
-                                if (count == -1) break
-                                size += count
-                                check(size <= expectedSize) { "Ukuran APK tidak cocok." }
-                                digest.update(buffer, 0, count)
-                                output.write(buffer, 0, count)
-                            }
-                        }
-                    }
-                } finally {
-                    connection.disconnect()
-                }
-                val hash = digest.digest().joinToString("") { "%02x".format(it) }
-                check(size == expectedSize && hash == expectedHash) { "Unduhan APK tidak utuh. Coba lagi." }
+                downloadToFile(settings, job, temp, expectedSize, expectedHash)
                 val output = checkNotNull(context.contentResolver.openOutputStream(destination, "wt")) {
                     "Lokasi penyimpanan tidak dapat dibuka."
                 }
@@ -194,4 +171,66 @@ class ApkBuildGateway(private val settingsStore: GatewaySettingsStore) {
                 temp.delete()
             }
         }
+
+    private suspend fun downloadToFile(settings: GatewaySettings, job: ApkBuild, temp: File, expectedSize: Long, expectedHash: String) {
+        repeat(2) { attempt ->
+            val descriptor = connect(settings, "/api/build/${job.id}/download", "GET")
+            val signedUrl = try {
+                if (descriptor.responseCode in listOf(404, 501) && settings.url != defaultGatewayUrl) null
+                else {
+                    checkResponse(descriptor)
+                    val bytes = descriptor.inputStream.use { input ->
+                        val output = java.io.ByteArrayOutputStream()
+                        val buffer = ByteArray(4096)
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            check(output.size() + count <= 16_384) { "Respons unduhan terlalu besar." }
+                            output.write(buffer, 0, count)
+                        }
+                        output.toByteArray()
+                    }
+                    check(bytes.size <= 16_384) { "Respons unduhan terlalu besar." }
+                    val json = Json.parseToJsonElement(String(bytes, Charsets.UTF_8)).jsonObject
+                    check(json["size"]?.jsonPrimitive?.longOrNull == expectedSize &&
+                        json["sha256"]?.jsonPrimitive?.content == expectedHash) { "Metadata APK berubah. Muat ulang tugas." }
+                    validatedArtifactUrl(json.getValue("url").jsonPrimitive.content)
+                }
+            } finally { descriptor.disconnect() }
+            val connection = if (signedUrl == null) connect(settings, "/api/build/${job.id}/apk", "GET")
+                else (signedUrl.toURL().openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = false
+                    connectTimeout = 10_000
+                    readTimeout = 60_000
+                }
+            val digest = MessageDigest.getInstance("SHA-256")
+            var size = 0L
+            try {
+                // Refresh a short-lived Storage URL once; never resend the gateway token to Storage.
+                if (signedUrl != null && connection.responseCode in listOf(401, 403) && attempt == 0) return@repeat
+                checkResponse(connection)
+                connection.inputStream.use { input ->
+                    temp.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val count = input.read(buffer)
+                            if (count == -1) break
+                            size += count
+                            check(size <= expectedSize) { "Ukuran APK tidak cocok." }
+                            digest.update(buffer, 0, count)
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+            val hash = digest.digest().joinToString("") { "%02x".format(it) }
+            check(size == expectedSize && hash == expectedHash) { "Unduhan APK tidak utuh. Coba lagi." }
+            return
+        }
+        error("Tautan unduhan kedaluwarsa. Coba lagi.")
+    }
 }

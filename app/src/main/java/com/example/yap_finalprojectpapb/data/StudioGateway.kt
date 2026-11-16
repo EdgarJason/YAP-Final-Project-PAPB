@@ -17,7 +17,8 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-internal const val defaultGatewayUrl = "https://peculiar-deodorant-delegator.ngrok-free.dev"
+internal const val defaultGatewayUrl = "https://yap-gateway.vercel.app"
+internal const val legacyGatewayUrl = "https://peculiar-deodorant-delegator.ngrok-free.dev"
 
 data class GatewaySettings(val url: String = "", val token: String = "")
 data class SavedApkBuild(val id: String, val prompt: String, val gatewayUrl: String)
@@ -71,15 +72,22 @@ class GatewaySettingsStore(context: Context) {
                 String(doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8)
             }
         }.getOrDefault("")
-        val url = preferences.getString("url", null).orEmpty().ifBlank { defaultGatewayUrl }
-        if (url.trimEnd('/') == defaultGatewayUrl && token.isBlank()) {
+        val storedUrl = preferences.getString("url", null).orEmpty().ifBlank { defaultGatewayUrl }
+        val migrate = !preferences.getBoolean("cloud_origin_v2", false) && storedUrl.trimEnd('/') == legacyGatewayUrl
+        val url = if (migrate) defaultGatewayUrl else storedUrl
+        val usableToken = if (migrate && !token.matches(Regex("guest_[a-f0-9]{64}"))) "" else token
+        if (url.trimEnd('/') == defaultGatewayUrl && usableToken.isBlank()) {
             val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
             val guestToken = "guest_" + bytes.joinToString("") { "%02x".format(it.toInt() and 255) }
             val settings = GatewaySettings(defaultGatewayUrl, guestToken)
             save(settings)
+            preferences.edit().putBoolean("cloud_origin_v2", true).apply()
             return settings
         }
-        return GatewaySettings(url, token)
+        val settings = GatewaySettings(url, usableToken)
+        if (migrate) save(settings)
+        preferences.edit().putBoolean("cloud_origin_v2", true).apply()
+        return settings
     }
 
     fun save(settings: GatewaySettings) {
