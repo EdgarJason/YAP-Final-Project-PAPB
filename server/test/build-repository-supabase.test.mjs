@@ -109,7 +109,7 @@ test('claim replays the stored lease and prepare picks TUS for large APKs', asyn
     kind: 'apk', size: 7_000_000, sha256: 'a'.repeat(64),
   });
   assert.equal(prepared.artifact.method, 'tus');
-  assert.match(prepared.artifact.uploadUrl, /upload\/resumable$/);
+  assert.match(prepared.artifact.uploadUrl, /upload\/resumable\/sign$/);
   assert.equal(prepared.artifact.uploadToken, 'tok');
   assert.equal(prepared.artifact.objectPath, `jobs/${UUID}/${UUID}/${UUID}/app.apk`);
 });

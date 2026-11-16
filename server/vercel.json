@@ -1,1 +1,29 @@
-{"$schema":"https://openapi.vercel.sh/vercel.json","functions":{"api/build/[id].mjs":{"maxDuration":60},"api/build/[id]/answer.mjs":{"maxDuration":60},"api/build/[id]/apk.mjs":{"maxDuration":60},"api/build/[id]/artifacts/prepare.mjs":{"maxDuration":60},"api/build/[id]/download.mjs":{"maxDuration":120},"api/build/[id]/fail.mjs":{"maxDuration":60},"api/build/[id]/message.mjs":{"maxDuration":60},"api/build/[id]/metadata.mjs":{"maxDuration":60},"api/build/[id]/preview.mjs":{"maxDuration":120},"api/build/[id]/question.mjs":{"maxDuration":60},"api/build/[id]/renew.mjs":{"maxDuration":60},"api/build/[id]/result.mjs":{"maxDuration":120},"api/build/claim.mjs":{"maxDuration":60},"api/build/index.mjs":{"maxDuration":60},"api/build/signal.mjs":{"maxDuration":60},"api/capabilities.mjs":{"maxDuration":60},"api/generate.mjs":{"maxDuration":300},"api/worker/resume.mjs":{"maxDuration":60}}}
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/gateway.mjs": {
+      "maxDuration": 300
+    },
+    "api/generate.mjs": {
+      "maxDuration": 300
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/build",
+      "destination": "/api/gateway?yapRoute=build"
+    },
+    {
+      "source": "/api/build/:path*",
+      "destination": "/api/gateway?yapRoute=build/:path*"
+    },
+    {
+      "source": "/api/capabilities",
+      "destination": "/api/gateway?yapRoute=capabilities"
+    },
+    {
+      "source": "/api/worker/resume",
+      "destination": "/api/gateway?yapRoute=worker/resume"
+    }
+  ]
+}

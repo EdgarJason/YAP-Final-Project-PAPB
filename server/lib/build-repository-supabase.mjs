@@ -122,7 +122,7 @@ export function createSupabaseRepository({
       ...artifact,
       bucket,
       objectPath: artifact.object_path,
-      uploadUrl: useTus ? `${base}/storage/v1/upload/resumable` : fullUrl,
+      uploadUrl: useTus ? `${base}/storage/v1/upload/resumable/sign` : fullUrl,
       uploadToken: token,
       method: useTus ? 'tus' : 'standard',
       expiresAt: new Date(now() + 2 * 60 * 60_000).toISOString(),
