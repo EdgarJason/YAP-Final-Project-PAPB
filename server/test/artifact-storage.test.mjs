@@ -116,6 +116,23 @@ test('duplicate entry names are rejected', () => {
   assert.throws(() => inspectApkBytes(apk), /duplikat/);
 });
 
+test('forged small ZIP size cannot bypass the preview inflation byte cap', () => {
+  const apk = makeZip([MANIFEST, DEX, {
+    name: 'assets/index.html', data: Buffer.alloc(3 * 1024 * 1024, 65), method: 8,
+  }]);
+  // A hostile central directory can lie. The inflater must enforce its
+  // own output limit before trusting the final length comparison.
+  const cd = apk.readUInt32LE(apk.length - 22 + 16);
+  let offset = cd;
+  for (let i = 0; i < 3; i++) {
+    const nameLength = apk.readUInt16LE(offset + 28);
+    const name = apk.subarray(offset + 46, offset + 46 + nameLength).toString();
+    if (name === 'assets/index.html') apk.writeUInt32LE(1024, offset + 24);
+    offset += 46 + nameLength + apk.readUInt16LE(offset + 30) + apk.readUInt16LE(offset + 32);
+  }
+  assert.equal(extractPreviewHtml(apk), null);
+});
+
 test('path traversal names are rejected', () => {
   for (const bad of ['../evil.txt', '/abs/path.txt', 'a\\b.txt', 'x/../../evil.txt']) {
     const apk = makeZip([MANIFEST, DEX, { name: bad, data: strToU8('x'), method: 0 }]);

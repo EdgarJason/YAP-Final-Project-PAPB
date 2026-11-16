@@ -4,7 +4,8 @@
 // (RANCANGAN §9). Signature verification (apksigner) stays a worker-side
 // report — it is NOT labelled as an independent server signature check.
 import { createHash } from 'node:crypto';
-import { inflateSync, strFromU8 } from 'fflate';
+import { strFromU8 } from 'fflate';
+import { inflateRawSync } from 'node:zlib';
 import { LIMITS, sha256Hex } from './build-service.mjs';
 
 const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
@@ -130,7 +131,7 @@ export function extractPreviewHtml(bytes) {
     const compressed = bytes.subarray(dataStart, dataEnd);
     const raw = entry.method === 0
       ? compressed
-      : inflateSync(compressed);
+      : inflateRawSync(compressed, { maxOutputLength: LIMITS.maxPreviewHtmlBytes });
     if (raw.length !== entry.uncompressedSize) return null;
     return strFromU8(raw);
   } catch {

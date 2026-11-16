@@ -241,6 +241,23 @@ test('storeArtifactBytes on the Supabase backend refuses gateway uploads', async
   );
 });
 
+test('signed download includes the Storage API prefix and never accepts a foreign URL', async () => {
+  for (const signedURL of ['/object/sign/yap-artifacts/jobs/app.apk?token=test', '/storage/v1/object/sign/yap-artifacts/jobs/app.apk?token=test', 'https://foreign.invalid/app.apk']) {
+    const fetchImpl = async url => {
+      if (url.includes('/rest/v1/build_jobs')) return jsonResponse(200, [{ ...JOB_ROW, status: 'ready', result_artifact_id: UUID }]);
+      if (url.includes('/rest/v1/build_artifacts')) return jsonResponse(200, [{ object_path: 'jobs/app.apk' }]);
+      return jsonResponse(200, { signedURL });
+    };
+    const repo = createSupabaseRepository({ supabaseUrl: URL, serviceRoleKey: KEY, fetchImpl });
+    if (signedURL.startsWith('https:')) {
+      await assert.rejects(repo.createSignedDownloadUrl({ jobId: UUID, ownerHash: 'owner' }), error => error.status === 502);
+    } else {
+      const result = await repo.createSignedDownloadUrl({ jobId: UUID, ownerHash: 'owner' });
+      assert.equal(result.url, `${URL}/storage/v1/object/sign/yap-artifacts/jobs/app.apk?token=test`);
+    }
+  }
+});
+
 function randomUUID() {
   return '123e4567-e89b-12d3-a456-426614174001';
 }

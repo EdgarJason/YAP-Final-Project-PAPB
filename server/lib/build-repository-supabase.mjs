@@ -275,8 +275,13 @@ export function createSupabaseRepository({
       const artifact = Array.isArray(rows) && rows[0] ? rows[0] : null;
       if (!artifact) return null;
       const signed = await call(`/storage/v1/object/sign/${bucket}/${artifact.object_path}`, { body: { expiresIn: 300 } });
+      const relative = signed?.signedURL;
+      if (typeof relative !== 'string' || !relative.startsWith('/object/sign/') && !relative.startsWith('/storage/v1/object/sign/')) {
+        throw new ApiError(502, 'Storage tidak mengembalikan signed download URL.');
+      }
+      const downloadUrl = relative.startsWith('/storage/v1/') ? `${base}${relative}` : `${base}/storage/v1${relative}`;
       return {
-        url: `${base}${signed.signedURL}`,
+        url: downloadUrl,
         expiresAt: new Date(now() + 300_000).toISOString(),
         sha256: job.sha256, size: job.size,
         fileName: `${job.appName || `Aplikasi-${job.id.slice(0, 8)}`}.apk`,
